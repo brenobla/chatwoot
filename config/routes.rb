@@ -87,6 +87,11 @@ Rails.application.routes.draw do
             delete :avatar, on: :member
             post :reset_access_token, on: :member
           end
+          resources :ai_agents, only: [:index, :create, :show, :update, :destroy] do
+            post :playground, on: :member
+            resources :inboxes, only: [:index, :create, :destroy], param: :inbox_id,
+                      controller: 'ai_agents/inboxes'
+          end
           resources :contact_inboxes, only: [] do
             collection do
               post :filter

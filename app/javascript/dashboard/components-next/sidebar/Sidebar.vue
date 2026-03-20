@@ -391,7 +391,7 @@ const menuItems = computed(() => {
       label: t('SIDEBAR.AI_AGENT'),
       icon: 'i-lucide-bot',
       to: accountScopedRoute('ai_agent_index'),
-      activeOn: ['ai_agent_index'],
+      activeOn: ['ai_agent_index', 'ai_agent_settings'],
     },
     {
       name: 'Contacts',
