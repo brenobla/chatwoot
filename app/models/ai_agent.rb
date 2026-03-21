@@ -16,6 +16,8 @@ class AiAgent < ApplicationRecord
   has_many :ai_agent_inboxes, dependent: :destroy_async
   has_many :inboxes, through: :ai_agent_inboxes
   has_many :messages, as: :sender, dependent: :nullify
+  has_many :ai_agent_embeddings, dependent: :destroy_async
+  has_many :ai_agent_documents, dependent: :destroy
 
   validates :name, presence: true
   validates :account_id, presence: true
@@ -43,7 +45,10 @@ class AiAgent < ApplicationRecord
                  :knowledge_base,
                  :response_format,
                  :only_business_hours,
-                 :add_private_note
+                 :add_private_note,
+                 :guardrails,
+                 :response_guidelines,
+                 :resolution_message
 
   # Defaults
   after_initialize do
@@ -83,6 +88,22 @@ class AiAgent < ApplicationRecord
     return keywords if keywords.is_a?(Array)
 
     keywords.to_s.split(',').map(&:strip).reject(&:blank?)
+  end
+
+  def parsed_guardrails
+    items = config['guardrails']
+    return [] if items.blank?
+    return items if items.is_a?(Array)
+
+    items.to_s.split("\n").map(&:strip).reject(&:blank?)
+  end
+
+  def parsed_response_guidelines
+    items = config['response_guidelines']
+    return [] if items.blank?
+    return items if items.is_a?(Array)
+
+    items.to_s.split("\n").map(&:strip).reject(&:blank?)
   end
 
   def parsed_blocked_topics

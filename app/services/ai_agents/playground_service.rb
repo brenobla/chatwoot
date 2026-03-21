@@ -43,15 +43,47 @@ module AiAgents
 
     def build_system_prompt
       prompt = @ai_agent.system_prompt || 'Você é um assistente de suporte ao cliente.'
+
       if @ai_agent.knowledge_base.present?
         prompt += "\n\n## Base de Conhecimento\n#{@ai_agent.knowledge_base}"
       end
+
+      # Add document context
+      documents = @ai_agent.ai_agent_documents.where(status: 'ready')
+      if documents.any?
+        prompt += "\n\n## Documentos de Referência\n"
+        documents.each { |doc| prompt += "### #{doc.file_name}\n#{doc.content}\n\n" }
+      end
+
+      # Add guardrails
+      guardrails = @ai_agent.parsed_guardrails
+      if guardrails.present?
+        prompt += "\n\n## Guardrails (Regras obrigatórias)\n"
+        guardrails.each { |g| prompt += "- #{g}\n" }
+      end
+
+      # Add response guidelines
+      guidelines = @ai_agent.parsed_response_guidelines
+      if guidelines.present?
+        prompt += "\n\n## Diretrizes de Resposta\n"
+        guidelines.each { |g| prompt += "- #{g}\n" }
+      end
+
       prompt
     end
 
     def openai_api_key
-      InstallationConfig.find_by(name: 'CAPTAIN_OPEN_AI_API_KEY')&.value ||
-        ENV.fetch('OPENAI_API_KEY', nil)
+      # 1. Account's OpenAI integration (Settings > Integrations > OpenAI)
+      account = @ai_agent.account
+      hook = account.hooks.find_by(app_id: 'openai', status: 'enabled')
+      return hook.settings['api_key'] if hook&.settings&.dig('api_key').present?
+
+      # 2. System-wide installation config
+      config_key = InstallationConfig.find_by(name: 'CAPTAIN_OPEN_AI_API_KEY')&.value
+      return config_key if config_key.present?
+
+      # 3. Environment variable
+      ENV.fetch('OPENAI_API_KEY', nil)
     end
   end
 end

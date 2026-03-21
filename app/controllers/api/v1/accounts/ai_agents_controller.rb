@@ -3,7 +3,10 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
 
   def index
     @ai_agents = Current.account.ai_agents.ordered.includes(:inboxes)
-    render json: @ai_agents.map { |a| ai_agent_json(a) }
+    render json: {
+      payload: @ai_agents.map { |a| ai_agent_json(a) },
+      meta: { total_count: @ai_agents.size, page: 1 }
+    }
   end
 
   def show
@@ -54,10 +57,11 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
       config: [
         :system_prompt, :openai_model, :temperature, :top_p,
         :frequency_penalty, :presence_penalty, :max_tokens, :context_messages,
-        :mode, :language, :welcome_message, :handoff_message,
+        :mode, :language, :welcome_message, :handoff_message, :resolution_message,
         :handoff_keywords, :blocked_topics, :max_replies,
         :knowledge_base, :response_format, :only_business_hours,
-        :add_private_note
+        :add_private_note,
+        guardrails: [], response_guidelines: []
       ]
     )
   end
@@ -71,6 +75,7 @@ class Api::V1::Accounts::AiAgentsController < Api::V1::Accounts::BaseController
       config: agent.config,
       inbox_ids: agent.inbox_ids,
       inboxes: agent.inboxes.map { |i| { id: i.id, name: i.name, channel_type: i.channel_type } },
+      documents_count: agent.ai_agent_documents.size,
       created_at: agent.created_at,
       updated_at: agent.updated_at
     }

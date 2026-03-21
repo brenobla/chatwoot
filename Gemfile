@@ -204,6 +204,7 @@ gem 'opentelemetry-sdk'
 gem 'opentelemetry-exporter-otlp'
 
 gem 'shopify_api'
+gem 'pdf-reader'
 
 ### Gems required only in specific deployment environments ###
 ##############################################################

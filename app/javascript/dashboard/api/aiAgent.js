@@ -23,6 +23,20 @@ class AiAgentAPI extends ApiClient {
   disconnectInbox(agentId, inboxId) {
     return axios.delete(`${this.url}/${agentId}/inboxes/${inboxId}`);
   }
+
+  getDocuments(agentId) {
+    return axios.get(`${this.url}/${agentId}/documents`);
+  }
+
+  uploadDocument(agentId, formData) {
+    return axios.post(`${this.url}/${agentId}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  }
+
+  deleteDocument(agentId, documentId) {
+    return axios.delete(`${this.url}/${agentId}/documents/${documentId}`);
+  }
 }
 
 export default new AiAgentAPI();

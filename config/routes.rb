@@ -91,6 +91,8 @@ Rails.application.routes.draw do
             post :playground, on: :member
             resources :inboxes, only: [:index, :create, :destroy], param: :inbox_id,
                       controller: 'ai_agents/inboxes'
+            resources :documents, only: [:index, :create, :destroy],
+                      controller: 'ai_agents/documents'
           end
           resources :contact_inboxes, only: [] do
             collection do

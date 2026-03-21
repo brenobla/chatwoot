@@ -2,12 +2,31 @@ class Api::V1::Accounts::AiAgents::InboxesController < Api::V1::Accounts::BaseCo
   before_action :fetch_ai_agent
 
   def index
+    if params[:available] == 'true'
+      return available
+    end
+
     render json: @ai_agent.ai_agent_inboxes.includes(:inbox).map { |aai|
       {
         id: aai.id,
         inbox_id: aai.inbox.id,
         inbox_name: aai.inbox.name,
         channel_type: aai.inbox.channel_type
+      }
+    }
+  end
+
+  def available
+    connected_inbox_ids = AiAgentInbox.where(
+      ai_agent_id: Current.account.ai_agents.select(:id)
+    ).pluck(:inbox_id)
+
+    available_inboxes = Current.account.inboxes.where.not(id: connected_inbox_ids)
+    render json: available_inboxes.map { |inbox|
+      {
+        id: inbox.id,
+        name: inbox.name,
+        channel_type: inbox.channel_type
       }
     }
   end
