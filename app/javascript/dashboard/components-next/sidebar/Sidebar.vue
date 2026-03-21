@@ -390,8 +390,26 @@ const menuItems = computed(() => {
       name: 'AiAgent',
       label: t('SIDEBAR.AI_AGENT'),
       icon: 'i-lucide-bot',
-      to: accountScopedRoute('ai_agent_index'),
-      activeOn: ['ai_agent_index', 'ai_agent_settings'],
+      children: [
+        {
+          name: 'AiAgentAgents',
+          label: t('SIDEBAR.AI_AGENT_AGENTS'),
+          to: accountScopedRoute('ai_agent_index'),
+          activeOn: ['ai_agent_index', 'ai_agent_edit'],
+        },
+        {
+          name: 'AiAgentPlayground',
+          label: t('SIDEBAR.AI_AGENT_PLAYGROUND'),
+          to: accountScopedRoute('ai_agent_playground'),
+          activeOn: ['ai_agent_playground'],
+        },
+        {
+          name: 'AiAgentSettings',
+          label: t('SIDEBAR.AI_AGENT_SETTINGS'),
+          to: accountScopedRoute('ai_agent_global_settings'),
+          activeOn: ['ai_agent_global_settings'],
+        },
+      ],
     },
     {
       name: 'Contacts',
