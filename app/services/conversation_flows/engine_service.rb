@@ -43,16 +43,28 @@ module ConversationFlows
       current_step_data = fetch_step(flow_state.current_step)
       return complete_flow unless current_step_data
 
-      selected_option = match_user_response(message, current_step_data)
+      step_type = current_step_data['type'] || 'message'
+
+      case step_type
+      when 'message'
+        process_message_response(message, current_step_data)
+      when 'collect_data'
+        process_collect_data_response(message, current_step_data)
+      when 'wait_response'
+        process_wait_response(message, current_step_data)
+      else
+        # For other types, try matching as message
+        process_message_response(message, current_step_data)
+      end
+    end
+
+    def process_message_response(message, step_data)
+      selected_option = match_user_response(message, step_data)
 
       if selected_option.present?
-        # Store the user's choice in context
         update_context(flow_state.current_step, selected_option)
-
-        # Execute any actions defined on the selected option
         execute_actions(selected_option['actions']) if selected_option['actions'].present?
 
-        # Advance to next step
         next_step = selected_option['next_step']
         if next_step.present?
           flow_state.update!(current_step: next_step)
@@ -61,10 +73,58 @@ module ConversationFlows
           complete_flow
         end
       else
-        # No match found - re-send the current step or send a fallback message
-        fallback = current_step_data['fallback_message'] || 'Desculpe, nao entendi. Por favor, selecione uma das opcoes.'
+        fallback = step_data['fallback_message'] || 'Desculpe, nao entendi. Por favor, selecione uma das opcoes.'
         send_bot_message(fallback)
         execute_step(flow_state.current_step)
+      end
+    end
+
+    def process_collect_data_response(message, step_data)
+      # Store form submitted values or text response
+      submitted = message.content_attributes&.dig('submitted_values')
+      if submitted.present?
+        submitted.each do |field|
+          update_context(field['name'], field['value']) if field['name']
+        end
+      else
+        # Store raw text as the first field's value
+        first_field = (step_data['fields'] || []).first
+        update_context(first_field['name'], message.content) if first_field
+      end
+
+      next_step = step_data['next_step']
+      if next_step.present?
+        flow_state.update!(current_step: next_step)
+        execute_step(next_step)
+      else
+        complete_flow
+      end
+    end
+
+    def process_wait_response(message, step_data)
+      variable = step_data['variable'] || 'user_response'
+      validation = step_data['validation'] || 'none'
+
+      # Validate response
+      if validation == 'email' && !message.content.to_s.match?(/\A[^@\s]+@[^@\s]+\z/)
+        send_bot_message('Por favor, informe um e-mail válido.')
+        return
+      end
+
+      if validation == 'phone' && !message.content.to_s.match?(/[\d\s\-\+\(\)]{8,}/)
+        send_bot_message('Por favor, informe um número de telefone válido.')
+        return
+      end
+
+      # Store response in context
+      update_context(variable, message.content)
+
+      next_step = step_data['next_step']
+      if next_step.present?
+        flow_state.update!(current_step: next_step)
+        execute_step(next_step)
+      else
+        complete_flow
       end
     end
 
@@ -78,18 +138,104 @@ module ConversationFlows
         return
       end
 
-      # Execute pre-actions if defined
-      execute_actions(step_data['actions']) if step_data['actions'].present?
+      step_type = step_data['type'] || 'message'
 
-      # Check if this is a terminal step (no options, just message + actions)
-      if step_data['options'].blank?
+      case step_type
+      when 'message'
+        execute_message_step(step_key, step_data)
+      when 'collect_data'
+        execute_collect_data_step(step_key, step_data)
+      when 'check_hours'
+        execute_check_hours_step(step_key, step_data)
+      when 'transfer'
+        execute_transfer_step(step_data)
+      when 'wait_response'
+        execute_wait_response_step(step_key, step_data)
+      when 'action'
+        # Legacy action type
+        execute_actions(step_data['actions']) if step_data['actions'].present?
         send_bot_message(step_data['message']) if step_data['message'].present?
         complete_flow
-        return
+      else
+        # Fallback: treat as message
+        execute_message_step(step_key, step_data)
+      end
+    end
+
+    def execute_message_step(_step_key, step_data)
+      if step_data['options'].present?
+        send_step_message(step_data)
+      else
+        send_bot_message(step_data['message']) if step_data['message'].present?
+        if step_data['next_step'].present?
+          flow_state.update!(current_step: step_data['next_step'])
+          execute_step(step_data['next_step'])
+        else
+          complete_flow
+        end
+      end
+    end
+
+    def execute_collect_data_step(_step_key, step_data)
+      # Send form message to collect data
+      fields = step_data['fields'] || []
+      items = fields.map do |field|
+        {
+          type: field['type'] || 'text',
+          name: field['name'],
+          label: field['label'],
+          placeholder: field['placeholder'] || field['label'],
+          required: field['required'] || false
+        }
       end
 
-      # Build and send the message with buttons
-      send_step_message(step_data)
+      send_bot_message(
+        step_data['message'] || 'Por favor, preencha os dados abaixo:',
+        'form',
+        { items: items, button_label: 'Enviar' }
+      )
+      # Flow stays on this step waiting for form submission
+    end
+
+    def execute_check_hours_step(_step_key, step_data)
+      # Check if current time is within business hours
+      account = conversation.account
+      inbox = conversation.inbox
+
+      is_open = if inbox&.working_hours_enabled?
+                  inbox.working_hours.today&.open_all_day? ||
+                    (inbox.working_hours.today && !inbox.working_hours.today.closed_all_day? &&
+                     Time.current.between?(
+                       Time.current.change(hour: inbox.working_hours.today.open_hour, min: inbox.working_hours.today.open_minutes),
+                       Time.current.change(hour: inbox.working_hours.today.close_hour, min: inbox.working_hours.today.close_minutes)
+                     ))
+                else
+                  true # If no business hours configured, consider always open
+                end
+
+      next_step = is_open ? step_data['open_next'] : step_data['closed_next']
+
+      if next_step.present?
+        flow_state.update!(current_step: next_step)
+        execute_step(next_step)
+      else
+        complete_flow
+      end
+    end
+
+    def execute_transfer_step(step_data)
+      send_bot_message(step_data['message']) if step_data['message'].present?
+
+      assign_team(step_data['team_id']) if step_data['team_id'].present?
+      assign_agent(step_data['agent_id']) if step_data['agent_id'].present?
+
+      flow_state.update!(status: :handoff)
+    end
+
+    def execute_wait_response_step(_step_key, step_data)
+      # Send prompt and wait for user response
+      send_bot_message(step_data['message']) if step_data['message'].present?
+      # Flow stays on this step, process_message will handle the next response
     end
 
     def send_step_message(step_data)

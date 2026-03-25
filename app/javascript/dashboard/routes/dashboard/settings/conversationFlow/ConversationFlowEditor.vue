@@ -18,10 +18,7 @@
         />
       </div>
       <div class="flow-topbar-right">
-        <select
-          v-model="inboxId"
-          class="flow-topbar-select"
-        >
+        <select v-model="inboxId" class="flow-topbar-select">
           <option value="">Todas as caixas</option>
           <option
             v-for="inbox in inboxes"
@@ -31,14 +28,18 @@
             {{ inbox.name }}
           </option>
         </select>
-        <select
-          v-model="triggerType"
-          class="flow-topbar-select"
-        >
+        <select v-model="triggerType" class="flow-topbar-select">
           <option value="conversation_created">Nova conversa</option>
           <option value="message_created">Nova mensagem</option>
           <option value="keyword">Palavra-chave</option>
         </select>
+        <button
+          class="flow-topbar-btn-icon"
+          title="Organizar layout"
+          @click="doAutoLayout"
+        >
+          <span class="i-lucide-layout-grid w-4 h-4" />
+        </button>
         <button
           class="flow-topbar-btn-icon"
           title="Configuracoes do Bot"
@@ -63,243 +64,223 @@
       </div>
     </div>
 
-    <!-- Canvas Area -->
-    <div class="flow-canvas-area">
-      <div
-        ref="flowWrapper"
-        class="flow-canvas-wrapper"
-        :class="{ 'sidebar-open': showSidebar }"
-        @drop="onDrop"
-        @dragover.prevent
-        @dragenter.prevent
-      >
+    <!-- Main Area -->
+    <div class="flow-main-area">
+      <!-- Vue Flow Canvas -->
+      <div class="flow-canvas" :class="{ 'sidebar-open': showSidebar }">
         <VueFlow
-          v-model:nodes="nodes"
-          v-model:edges="edges"
-          :node-types="nodeTypes"
-          :default-edge-options="defaultEdgeOptions"
-          :fit-view-on-init="true"
+          v-model:nodes="vfNodes"
+          v-model:edges="vfEdges"
+          :default-viewport="{ x: 0, y: 0, zoom: 0.85 }"
+          :min-zoom="0.2"
+          :max-zoom="2"
           :snap-to-grid="true"
           :snap-grid="[20, 20]"
-          :connection-mode="ConnectionMode.Loose"
-          class="flow-canvas"
-          @connect="onConnect"
+          fit-view-on-init
           @node-click="onNodeClick"
           @pane-click="onPaneClick"
-          @nodes-change="onNodesChange"
+          @connect="onConnect"
         >
-          <Background :gap="24" :size="1.5" pattern-color="#d1d5db" />
+          <Background :gap="24" :size="1" pattern-color="#d1d5db" />
           <Controls position="bottom-left" />
-          <MiniMap position="bottom-right" />
+          <MiniMap position="bottom-left" :style="{ marginBottom: '50px' }" />
 
-          <!-- Custom Node: Start -->
-          <template #node-start="nodeProps">
+          <!-- ===== MESSAGE NODE ===== -->
+          <template #node-message="{ data, id }">
             <div
-              class="mc-node mc-node--start"
-              :class="{ 'mc-node--selected': selectedNodeId === nodeProps.id }"
+              class="vf-node vf-node--message"
+              :class="{ 'vf-node--selected': selectedNodeKey === id }"
             >
-              <div class="mc-node__header">
-                <span class="mc-node__dot mc-node__dot--green" />
-                <span class="mc-node__key">start</span>
+              <Handle type="target" :position="Position.Top" class="vf-handle vf-handle--target" />
+              <div class="vf-node__header">
+                <span class="vf-node__icon">&#x1F4AC;</span>
+                <span class="vf-node__key">{{ id }}</span>
               </div>
-              <div class="mc-node__divider" />
-              <div class="mc-node__body">
-                <p class="mc-node__preview">
-                  {{ nodeProps.data.greeting || 'Saudacao inicial...' }}
-                </p>
+              <p v-if="data.message" class="vf-node__text">{{ truncate(data.message, 80) }}</p>
+              <div v-if="data.options && data.options.length" class="vf-node__badge vf-node__badge--message">
+                Opcoes ({{ data.options.length }})
               </div>
-              <Handle
-                type="source"
-                :position="Position.Bottom"
-                class="mc-handle mc-handle--source"
-              />
-            </div>
-          </template>
-
-          <!-- Custom Node: Message -->
-          <template #node-message="nodeProps">
-            <div
-              class="mc-node mc-node--message"
-              :class="{ 'mc-node--selected': selectedNodeId === nodeProps.id }"
-            >
-              <Handle
-                type="target"
-                :position="Position.Top"
-                class="mc-handle mc-handle--target"
-              />
-              <div class="mc-node__header">
-                <span class="mc-node__dot mc-node__dot--blue" />
-                <span class="mc-node__key">{{ nodeProps.data.label || 'mensagem' }}</span>
-              </div>
-              <div class="mc-node__divider" />
-              <div class="mc-node__body">
-                <p class="mc-node__preview">
-                  {{ nodeProps.data.message || 'Texto da mensagem...' }}
-                </p>
+              <div v-if="data.options && data.options.length" class="vf-node__options">
                 <div
-                  v-if="nodeProps.data.options && nodeProps.data.options.length > 0"
-                  class="mc-node__options"
+                  v-for="(opt, idx) in data.options"
+                  :key="idx"
+                  class="vf-node__option-pill"
                 >
-                  <div
-                    v-for="(opt, idx) in nodeProps.data.options"
-                    :key="idx"
-                    class="mc-option"
-                  >
-                    <span class="mc-option__label">{{ opt.title || '...' }}</span>
-                    <span class="mc-option__arrow">
-                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                        <path d="M1 4H7M7 4L4 1M7 4L4 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                      </svg>
-                    </span>
-                    <Handle
-                      :id="`option-${idx}`"
-                      type="source"
-                      :position="Position.Right"
-                      class="mc-handle mc-handle--option"
-                    />
-                  </div>
+                  {{ opt.title || opt.value || '...' }}
+                  <Handle
+                    :id="'opt-' + idx"
+                    type="source"
+                    :position="Position.Bottom"
+                    class="vf-handle vf-handle--source-pill"
+                    :style="{ position: 'relative', transform: 'none', left: 'auto', top: 'auto', display: 'inline-block', width: '8px', height: '8px', marginLeft: '4px' }"
+                  />
                 </div>
               </div>
-              <!-- Fallback source when no options -->
               <Handle
-                v-if="!nodeProps.data.options || nodeProps.data.options.length === 0"
+                v-if="!data.options || !data.options.length"
                 type="source"
                 :position="Position.Bottom"
-                class="mc-handle mc-handle--source"
+                class="vf-handle vf-handle--source"
+              />
+              <!-- Inline add button when no outgoing edges -->
+              <div
+                v-if="nodeHasNoOutgoing(id)"
+                class="vf-node__add-btn"
+                @click.stop="onAddFromNode(id)"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </div>
+            </div>
+          </template>
+
+          <!-- ===== COLLECT DATA NODE ===== -->
+          <template #node-collectData="{ data, id }">
+            <div
+              class="vf-node vf-node--collectData"
+              :class="{ 'vf-node--selected': selectedNodeKey === id }"
+            >
+              <Handle type="target" :position="Position.Top" class="vf-handle vf-handle--target" />
+              <div class="vf-node__header">
+                <span class="vf-node__icon">&#x1F4CB;</span>
+                <span class="vf-node__key">{{ id }}</span>
+              </div>
+              <p v-if="data.message" class="vf-node__text">{{ truncate(data.message, 80) }}</p>
+              <div v-if="data.fields && data.fields.length" class="vf-node__fields">
+                <span v-for="(f, i) in data.fields" :key="i" class="vf-node__field-chip">
+                  {{ fieldIcon(f.type) }} {{ f.label || f.name }}
+                </span>
+              </div>
+              <div class="vf-node__badge vf-node__badge--collectData">Peca detalhes</div>
+              <Handle type="source" :position="Position.Bottom" class="vf-handle vf-handle--source" />
+              <div
+                v-if="nodeHasNoOutgoing(id)"
+                class="vf-node__add-btn"
+                @click.stop="onAddFromNode(id)"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </div>
+            </div>
+          </template>
+
+          <!-- ===== CHECK HOURS NODE ===== -->
+          <template #node-checkHours="{ data, id }">
+            <div
+              class="vf-node-diamond-wrap"
+              :class="{ 'vf-node--selected': selectedNodeKey === id }"
+            >
+              <Handle type="target" :position="Position.Top" class="vf-handle vf-handle--target" />
+              <div class="vf-node-diamond">
+                <span class="vf-node-diamond__icon">&#x23F0;</span>
+              </div>
+              <div class="vf-node-diamond__label">{{ id }}</div>
+              <Handle
+                id="open"
+                type="source"
+                :position="Position.Left"
+                class="vf-handle vf-handle--source-green"
+              />
+              <Handle
+                id="closed"
+                type="source"
+                :position="Position.Right"
+                class="vf-handle vf-handle--source-orange"
               />
             </div>
           </template>
 
-          <!-- Custom Node: Text -->
-          <template #node-text="nodeProps">
+          <!-- ===== TRANSFER NODE ===== -->
+          <template #node-transfer="{ data, id }">
             <div
-              class="mc-node mc-node--text"
-              :class="{ 'mc-node--selected': selectedNodeId === nodeProps.id }"
+              class="vf-node vf-node--transfer"
+              :class="{ 'vf-node--selected': selectedNodeKey === id }"
             >
-              <Handle
-                type="target"
-                :position="Position.Top"
-                class="mc-handle mc-handle--target"
-              />
-              <div class="mc-node__header">
-                <span class="mc-node__dot mc-node__dot--purple" />
-                <span class="mc-node__key">{{ nodeProps.data.label || 'texto' }}</span>
+              <Handle type="target" :position="Position.Top" class="vf-handle vf-handle--target" />
+              <div class="vf-node__header">
+                <span class="vf-node__icon">&#x1F500;</span>
+                <span class="vf-node__key">{{ id }}</span>
               </div>
-              <div class="mc-node__divider" />
-              <div class="mc-node__body">
-                <p class="mc-node__preview">
-                  {{ nodeProps.data.message || 'Texto simples...' }}
-                </p>
+              <p v-if="data.message" class="vf-node__text">{{ truncate(data.message, 80) }}</p>
+              <div class="vf-node__badge vf-node__badge--transfer">
+                &#x1F464; Transferir{{ data.team_id ? ' - Equipe ' + data.team_id : '' }}
               </div>
-              <Handle
-                type="source"
-                :position="Position.Bottom"
-                class="mc-handle mc-handle--source"
-              />
+              <!-- No source handles: terminal node -->
             </div>
           </template>
 
-          <!-- Custom Node: Action -->
-          <template #node-action="nodeProps">
+          <!-- ===== WAIT RESPONSE NODE ===== -->
+          <template #node-waitResponse="{ data, id }">
             <div
-              class="mc-node mc-node--action"
-              :class="{ 'mc-node--selected': selectedNodeId === nodeProps.id }"
+              class="vf-node vf-node--waitResponse"
+              :class="{ 'vf-node--selected': selectedNodeKey === id }"
             >
-              <Handle
-                type="target"
-                :position="Position.Top"
-                class="mc-handle mc-handle--target"
-              />
-              <div class="mc-node__header">
-                <span class="mc-node__dot mc-node__dot--amber" />
-                <span class="mc-node__key">{{ nodeProps.data.label || 'acao' }}</span>
+              <Handle type="target" :position="Position.Top" class="vf-handle vf-handle--target" />
+              <div class="vf-node__header">
+                <span class="vf-node__icon">&#x231B;</span>
+                <span class="vf-node__key">{{ id }}</span>
               </div>
-              <div class="mc-node__divider" />
-              <div class="mc-node__body">
-                <p
-                  v-if="nodeProps.data.message"
-                  class="mc-node__preview"
-                >
-                  {{ nodeProps.data.message }}
-                </p>
-                <div
-                  v-if="nodeProps.data.actions && nodeProps.data.actions.length > 0"
-                  class="mc-node__actions"
-                >
-                  <div
-                    v-for="(act, idx) in nodeProps.data.actions"
-                    :key="idx"
-                    class="mc-action-item"
-                  >
-                    <span class="mc-action-item__icon">{{ actionIcon(act.type) }}</span>
-                    <span class="mc-action-item__text">{{ actionTypeLabel(act.type) }}{{ actionDetail(act) }}</span>
-                  </div>
-                </div>
-                <p
-                  v-if="!nodeProps.data.actions || nodeProps.data.actions.length === 0"
-                  class="mc-node__empty"
-                >
-                  Nenhuma acao configurada
-                </p>
+              <p v-if="data.message" class="vf-node__text">{{ truncate(data.message, 80) }}</p>
+              <div class="vf-node__validation-badge">
+                {{ validationIcon(data.validation) }} {{ validationLabel(data.validation) }}
               </div>
+              <Handle type="source" :position="Position.Bottom" class="vf-handle vf-handle--source" />
+              <div
+                v-if="nodeHasNoOutgoing(id)"
+                class="vf-node__add-btn"
+                @click.stop="onAddFromNode(id)"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </div>
+            </div>
+          </template>
+
+          <!-- Edge labels -->
+          <template #edge-label="{ edge }">
+            <div v-if="edge.label" class="vf-edge-label" :class="edgeLabelClass(edge)">
+              {{ edge.label }}
             </div>
           </template>
         </VueFlow>
-      </div>
 
-      <!-- Floating Add Button -->
-      <div class="flow-fab-container" :class="{ 'sidebar-open': showSidebar }">
-        <Transition name="fab-menu">
-          <div v-if="showAddMenu" class="flow-fab-menu">
-            <button class="flow-fab-menu-item" @click="addNodeToCenter('message')">
-              <span class="flow-fab-menu-dot flow-fab-menu-dot--blue" />
-              <span>Mensagem</span>
-            </button>
-            <button class="flow-fab-menu-item" @click="addNodeToCenter('text')">
-              <span class="flow-fab-menu-dot flow-fab-menu-dot--purple" />
-              <span>Texto</span>
-            </button>
-            <button class="flow-fab-menu-item" @click="addNodeToCenter('action')">
-              <span class="flow-fab-menu-dot flow-fab-menu-dot--amber" />
-              <span>Acao</span>
+        <!-- Floating Add Button -->
+        <div class="fab-add" @click="onFabAdd">
+          <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+            <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+
+        <!-- Empty state -->
+        <div v-if="Object.keys(steps).length === 0" class="flow-empty-overlay">
+          <div class="tree-empty-state">
+            <div class="tree-empty-icon">
+              <span class="i-lucide-git-branch w-10 h-10 text-slate-300" />
+            </div>
+            <p class="tree-empty-text">Nenhuma etapa criada ainda</p>
+            <button class="tree-empty-btn" @click="createRootNode">
+              <span class="i-lucide-plus w-4 h-4" />
+              Criar primeira etapa
             </button>
           </div>
-        </Transition>
-        <button
-          class="flow-fab"
-          :class="{ 'flow-fab--active': showAddMenu }"
-          @click="showAddMenu = !showAddMenu"
-        >
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            class="flow-fab__icon"
-          >
-            <path
-              d="M12 5V19M5 12H19"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
+        </div>
       </div>
 
       <!-- Right Sidebar -->
       <Transition name="sidebar-slide">
         <div v-if="showSidebar" class="flow-sidebar">
           <!-- Sidebar: Node Editor -->
-          <template v-if="sidebarTab === 'node' && selectedNode">
+          <template v-if="sidebarTab === 'node' && selectedStep">
             <div class="flow-sidebar__header">
               <div class="flow-sidebar__header-left">
                 <span
-                  class="mc-node__dot"
-                  :class="nodeTypeColor(selectedNode.type)"
+                  class="sidebar-dot"
+                  :class="`sidebar-dot--${selectedStep.type}`"
                 />
-                <span class="flow-sidebar__title">Editar Etapa</span>
+                <span class="flow-sidebar__title">{{ nodeTypeLabel(selectedStep.type) }}</span>
               </div>
               <button class="flow-sidebar__close" @click="closeSidebar">
                 <span class="i-lucide-x w-5 h-5" />
@@ -307,67 +288,41 @@
             </div>
 
             <div class="flow-sidebar__content">
-              <!-- Start Node -->
-              <template v-if="selectedNode.type === 'start'">
-                <div class="flow-sidebar__section">
-                  <label class="flow-sidebar__label">Saudacao</label>
-                  <textarea
-                    v-model="selectedNode.data.greeting"
-                    rows="4"
-                    placeholder="Ola! Como posso ajudar?"
-                    class="flow-sidebar__textarea"
-                    @input="updateNodeData"
-                  />
-                </div>
-              </template>
+              <!-- Step key -->
+              <div class="flow-sidebar__section">
+                <label class="flow-sidebar__label">Chave da Etapa</label>
+                <input
+                  v-model="editingKey"
+                  type="text"
+                  placeholder="chave_da_etapa"
+                  class="flow-sidebar__input flow-sidebar__input--mono"
+                  @blur="renameStepKey"
+                />
+              </div>
 
-              <!-- Message Node -->
-              <template v-if="selectedNode.type === 'message'">
-                <div class="flow-sidebar__section">
-                  <label class="flow-sidebar__label">Chave da Etapa</label>
-                  <input
-                    v-model="selectedNode.data.label"
-                    type="text"
-                    placeholder="chave_da_etapa"
-                    class="flow-sidebar__input flow-sidebar__input--mono"
-                    @input="updateNodeLabel"
-                  />
-                </div>
+              <!-- ===== MESSAGE NODE ===== -->
+              <template v-if="selectedStep.type === 'message'">
                 <div class="flow-sidebar__section">
                   <label class="flow-sidebar__label">Mensagem</label>
                   <textarea
-                    v-model="selectedNode.data.message"
+                    v-model="selectedStep.message"
                     rows="5"
                     placeholder="Texto da mensagem..."
                     class="flow-sidebar__textarea"
-                    @input="updateNodeData"
+                    @input="syncStepToVueFlow(selectedNodeKey)"
                   />
-                </div>
-                <div class="flow-sidebar__section">
-                  <label class="flow-sidebar__label">Tipo</label>
-                  <select
-                    v-model="selectedNode.data.stepType"
-                    class="flow-sidebar__select"
-                    @change="updateNodeData"
-                  >
-                    <option value="input_select">Botoes de opcao</option>
-                    <option value="cards">Cards</option>
-                  </select>
                 </div>
                 <div class="flow-sidebar__section">
                   <div class="flow-sidebar__section-header">
                     <label class="flow-sidebar__label">Opcoes / Botoes</label>
-                    <button
-                      class="flow-sidebar__add-btn"
-                      @click="addOptionToSelected"
-                    >
+                    <button class="flow-sidebar__add-btn" @click="addOption">
                       <span class="i-lucide-plus w-3.5 h-3.5" />
                       Adicionar
                     </button>
                   </div>
                   <div class="flow-sidebar__options-list">
                     <div
-                      v-for="(opt, idx) in selectedNode.data.options"
+                      v-for="(opt, idx) in selectedStep.options"
                       :key="idx"
                       class="flow-sidebar__option-card"
                     >
@@ -378,11 +333,11 @@
                           type="text"
                           placeholder="Titulo do botao"
                           class="flow-sidebar__input flow-sidebar__input--sm"
-                          @input="updateNodeData"
+                          @input="syncStepToVueFlow(selectedNodeKey)"
                         />
                         <button
                           class="flow-sidebar__remove-btn"
-                          @click="removeOptionFromSelected(idx)"
+                          @click="removeOption(idx)"
                         >
                           <span class="i-lucide-trash-2 w-3.5 h-3.5" />
                         </button>
@@ -392,121 +347,242 @@
                         type="text"
                         placeholder="Valor"
                         class="flow-sidebar__input flow-sidebar__input--sm"
-                        @input="updateNodeData"
+                        @input="syncStepToVueFlow(selectedNodeKey)"
                       />
+                      <div class="flow-sidebar__option-row">
+                        <label class="flow-sidebar__label-sm">Proximo passo:</label>
+                        <select
+                          v-model="opt.next_step"
+                          class="flow-sidebar__select flow-sidebar__select--sm"
+                          @change="rebuildEdges"
+                        >
+                          <option value="">-- Nenhum --</option>
+                          <option
+                            v-for="key in otherStepKeys"
+                            :key="key"
+                            :value="key"
+                          >
+                            {{ key }}
+                          </option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
               </template>
 
-              <!-- Text Node -->
-              <template v-if="selectedNode.type === 'text'">
-                <div class="flow-sidebar__section">
-                  <label class="flow-sidebar__label">Chave da Etapa</label>
-                  <input
-                    v-model="selectedNode.data.label"
-                    type="text"
-                    placeholder="chave_da_etapa"
-                    class="flow-sidebar__input flow-sidebar__input--mono"
-                    @input="updateNodeLabel"
-                  />
-                </div>
+              <!-- ===== COLLECT DATA NODE ===== -->
+              <template v-if="selectedStep.type === 'collect_data'">
                 <div class="flow-sidebar__section">
                   <label class="flow-sidebar__label">Mensagem</label>
                   <textarea
-                    v-model="selectedNode.data.message"
-                    rows="5"
-                    placeholder="Texto simples..."
+                    v-model="selectedStep.message"
+                    rows="4"
+                    placeholder="Poderia me informar os seus dados?"
                     class="flow-sidebar__textarea"
-                    @input="updateNodeData"
-                  />
-                </div>
-                <div class="flow-sidebar__section">
-                  <p class="flow-sidebar__hint">
-                    Conecte ao proximo passo arrastando uma conexao do handle inferior do no.
-                  </p>
-                </div>
-              </template>
-
-              <!-- Action Node -->
-              <template v-if="selectedNode.type === 'action'">
-                <div class="flow-sidebar__section">
-                  <label class="flow-sidebar__label">Chave da Etapa</label>
-                  <input
-                    v-model="selectedNode.data.label"
-                    type="text"
-                    placeholder="chave_da_etapa"
-                    class="flow-sidebar__input flow-sidebar__input--mono"
-                    @input="updateNodeLabel"
+                    @input="syncStepToVueFlow(selectedNodeKey)"
                   />
                 </div>
                 <div class="flow-sidebar__section">
                   <div class="flow-sidebar__section-header">
-                    <label class="flow-sidebar__label">Acoes</label>
-                    <button
-                      class="flow-sidebar__add-btn"
-                      @click="addActionToSelected"
-                    >
+                    <label class="flow-sidebar__label">Campos para coletar</label>
+                    <button class="flow-sidebar__add-btn" @click="addField">
                       <span class="i-lucide-plus w-3.5 h-3.5" />
                       Adicionar
                     </button>
                   </div>
                   <div class="flow-sidebar__options-list">
                     <div
-                      v-for="(action, idx) in selectedNode.data.actions"
+                      v-for="(field, idx) in selectedStep.fields"
                       :key="idx"
                       class="flow-sidebar__option-card"
                     >
                       <div class="flow-sidebar__option-row">
-                        <select
-                          v-model="action.type"
-                          class="flow-sidebar__select flow-sidebar__select--sm"
-                          @change="updateNodeData"
-                        >
-                          <option value="assign_team">Atribuir a equipe</option>
-                          <option value="assign_agent">Atribuir a agente</option>
-                          <option value="add_label">Adicionar etiqueta</option>
-                          <option value="handoff">Transferir para humano</option>
-                          <option value="resolve">Resolver conversa</option>
-                        </select>
+                        <input
+                          v-model="field.name"
+                          type="text"
+                          placeholder="Nome (ex: email)"
+                          class="flow-sidebar__input flow-sidebar__input--sm"
+                          @input="syncStepToVueFlow(selectedNodeKey)"
+                        />
                         <button
                           class="flow-sidebar__remove-btn"
-                          @click="removeActionFromSelected(idx)"
+                          @click="selectedStep.fields.splice(idx, 1); syncStepToVueFlow(selectedNodeKey)"
                         >
                           <span class="i-lucide-trash-2 w-3.5 h-3.5" />
                         </button>
                       </div>
                       <input
-                        v-if="action.type === 'assign_team'"
-                        v-model="action.team_id"
+                        v-model="field.label"
                         type="text"
-                        placeholder="ID ou nome da equipe"
+                        placeholder="Label (ex: E-mail)"
                         class="flow-sidebar__input flow-sidebar__input--sm"
-                        @input="updateNodeData"
+                        @input="syncStepToVueFlow(selectedNodeKey)"
                       />
-                      <input
-                        v-if="action.type === 'assign_agent'"
-                        v-model="action.agent_id"
-                        type="text"
-                        placeholder="ID ou nome do agente"
-                        class="flow-sidebar__input flow-sidebar__input--sm"
-                        @input="updateNodeData"
-                      />
-                      <input
-                        v-if="action.type === 'add_label'"
-                        v-model="action.label"
-                        type="text"
-                        placeholder="Nome da etiqueta"
-                        class="flow-sidebar__input flow-sidebar__input--sm"
-                        @input="updateNodeData"
-                      />
+                      <div class="flow-sidebar__option-row">
+                        <select
+                          v-model="field.type"
+                          class="flow-sidebar__select flow-sidebar__select--sm"
+                        >
+                          <option value="text">Texto</option>
+                          <option value="email">E-mail</option>
+                          <option value="phone">Telefone</option>
+                          <option value="select">Selecao</option>
+                        </select>
+                        <label class="flow-sidebar__checkbox-label">
+                          <input v-model="field.required" type="checkbox" />
+                          Obrigatorio
+                        </label>
+                      </div>
                     </div>
                   </div>
+                </div>
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Proximo passo</label>
+                  <select
+                    v-model="selectedStep.next_step"
+                    class="flow-sidebar__select"
+                    @change="rebuildEdges"
+                  >
+                    <option value="">-- Nenhum --</option>
+                    <option
+                      v-for="key in otherStepKeys"
+                      :key="key"
+                      :value="key"
+                    >
+                      {{ key }}
+                    </option>
+                  </select>
+                </div>
+              </template>
+
+              <!-- ===== CHECK HOURS NODE ===== -->
+              <template v-if="selectedStep.type === 'check_hours'">
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Quando em horario de atendimento</label>
+                  <select
+                    v-model="selectedStep.open_next"
+                    class="flow-sidebar__select"
+                    @change="rebuildEdges"
+                  >
+                    <option value="">-- Nenhum --</option>
+                    <option
+                      v-for="key in otherStepKeys"
+                      :key="key"
+                      :value="key"
+                    >
+                      {{ key }}
+                    </option>
+                  </select>
+                </div>
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Quando fora do horario</label>
+                  <select
+                    v-model="selectedStep.closed_next"
+                    class="flow-sidebar__select"
+                    @change="rebuildEdges"
+                  >
+                    <option value="">-- Nenhum --</option>
+                    <option
+                      v-for="key in otherStepKeys"
+                      :key="key"
+                      :value="key"
+                    >
+                      {{ key }}
+                    </option>
+                  </select>
+                </div>
+              </template>
+
+              <!-- ===== TRANSFER NODE ===== -->
+              <template v-if="selectedStep.type === 'transfer'">
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Mensagem antes da transferencia</label>
+                  <textarea
+                    v-model="selectedStep.message"
+                    rows="4"
+                    placeholder="So um segundo, vou te encaminhar..."
+                    class="flow-sidebar__textarea"
+                    @input="syncStepToVueFlow(selectedNodeKey)"
+                  />
+                </div>
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Equipe (team_id)</label>
+                  <input
+                    v-model="selectedStep.team_id"
+                    type="text"
+                    placeholder="ID da equipe"
+                    class="flow-sidebar__input"
+                    @input="syncStepToVueFlow(selectedNodeKey)"
+                  />
+                </div>
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Agente (agent_id) - opcional</label>
+                  <input
+                    v-model="selectedStep.agent_id"
+                    type="text"
+                    placeholder="ID do agente (opcional)"
+                    class="flow-sidebar__input"
+                  />
+                </div>
+              </template>
+
+              <!-- ===== WAIT RESPONSE NODE ===== -->
+              <template v-if="selectedStep.type === 'wait_response'">
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Mensagem / Pergunta</label>
+                  <textarea
+                    v-model="selectedStep.message"
+                    rows="4"
+                    placeholder="Peca detalhes sobre seu problema..."
+                    class="flow-sidebar__textarea"
+                    @input="syncStepToVueFlow(selectedNodeKey)"
+                  />
+                </div>
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Nome da variavel</label>
+                  <input
+                    v-model="selectedStep.variable"
+                    type="text"
+                    placeholder="user_issue"
+                    class="flow-sidebar__input flow-sidebar__input--mono"
+                  />
+                </div>
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Validacao</label>
+                  <select
+                    v-model="selectedStep.validation"
+                    class="flow-sidebar__select"
+                  >
+                    <option value="">Nenhuma</option>
+                    <option value="email">E-mail</option>
+                    <option value="phone">Telefone</option>
+                  </select>
+                </div>
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Proximo passo</label>
+                  <select
+                    v-model="selectedStep.next_step"
+                    class="flow-sidebar__select"
+                    @change="rebuildEdges"
+                  >
+                    <option value="">-- Nenhum --</option>
+                    <option
+                      v-for="key in otherStepKeys"
+                      :key="key"
+                      :value="key"
+                    >
+                      {{ key }}
+                    </option>
+                  </select>
                 </div>
               </template>
 
               <!-- Delete Button -->
-              <div v-if="selectedNode.type !== 'start'" class="flow-sidebar__danger-zone">
+              <div
+                v-if="selectedNodeKey !== 'start'"
+                class="flow-sidebar__danger-zone"
+              >
                 <button
                   class="flow-sidebar__delete-btn"
                   @click="deleteSelectedNode"
@@ -646,8 +722,8 @@
             </div>
           </template>
 
-          <!-- Sidebar: No selection placeholder -->
-          <template v-if="sidebarTab === 'node' && !selectedNode">
+          <!-- Sidebar: No selection -->
+          <template v-if="sidebarTab === 'node' && !selectedStep">
             <div class="flow-sidebar__header">
               <div class="flow-sidebar__header-left">
                 <span class="flow-sidebar__title">Propriedades</span>
@@ -664,20 +740,113 @@
         </div>
       </Transition>
     </div>
+
+    <!-- Add Node Menu (modal overlay) -->
+    <Transition name="fade">
+      <div
+        v-if="addMenuVisible"
+        class="add-menu-overlay"
+        @click.self="addMenuVisible = false"
+      >
+        <div class="add-menu-card">
+          <div class="add-menu-title">Adicionar etapa</div>
+          <button class="add-menu-item" @click="confirmAddNode('message')">
+            <span class="add-menu-dot add-menu-dot--message" />
+            <div>
+              <div class="add-menu-item-title">Mensagem</div>
+              <div class="add-menu-item-desc">Enviar mensagem com opcoes de botao</div>
+            </div>
+          </button>
+          <button class="add-menu-item" @click="confirmAddNode('collect_data')">
+            <span class="add-menu-dot add-menu-dot--collect_data" />
+            <div>
+              <div class="add-menu-item-title">Pedir Dados</div>
+              <div class="add-menu-item-desc">Coletar nome, email, telefone</div>
+            </div>
+          </button>
+          <button class="add-menu-item" @click="confirmAddNode('check_hours')">
+            <span class="add-menu-dot add-menu-dot--check_hours" />
+            <div>
+              <div class="add-menu-item-title">Verificar Horario</div>
+              <div class="add-menu-item-desc">Verificar se esta em horario de atendimento</div>
+            </div>
+          </button>
+          <button class="add-menu-item" @click="confirmAddNode('transfer')">
+            <span class="add-menu-dot add-menu-dot--transfer" />
+            <div>
+              <div class="add-menu-item-title">Transferir</div>
+              <div class="add-menu-item-desc">Transferir para equipe ou agente</div>
+            </div>
+          </button>
+          <button class="add-menu-item" @click="confirmAddNode('wait_response')">
+            <span class="add-menu-dot add-menu-dot--wait_response" />
+            <div>
+              <div class="add-menu-item-title">Aguardar Resposta</div>
+              <div class="add-menu-item-desc">Esperar o usuario digitar uma resposta</div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch, nextTick, markRaw } from 'vue';
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import { useMapGetter } from 'dashboard/composables/store';
 import axios from 'axios';
-import { VueFlow, useVueFlow, Position, Handle, ConnectionMode } from '@vue-flow/core';
+import { VueFlow, Handle, Position } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import { Controls } from '@vue-flow/controls';
 import { MiniMap } from '@vue-flow/minimap';
+import dagre from 'dagre';
 
+// ============================================================
+// Dagre auto-layout
+// ============================================================
+function layoutNodes(nodes, edges) {
+  const g = new dagre.graphlib.Graph();
+  g.setDefaultEdgeLabel(() => ({}));
+  g.setGraph({ rankdir: 'TB', nodesep: 80, ranksep: 120, marginx: 40, marginy: 40 });
+
+  nodes.forEach(node => {
+    const h = node.type === 'checkHours' ? 80 : 180;
+    g.setNode(node.id, { width: 300, height: h });
+  });
+  edges.forEach(edge => {
+    g.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(g);
+
+  return nodes.map(node => {
+    const pos = g.node(node.id);
+    return {
+      ...node,
+      position: { x: pos.x - 150, y: pos.y - (node.type === 'checkHours' ? 40 : 90) },
+    };
+  });
+}
+
+// ============================================================
+// Type mapping: steps type -> VueFlow node type
+// ============================================================
+const STEP_TO_VF_TYPE = {
+  message: 'message',
+  collect_data: 'collectData',
+  check_hours: 'checkHours',
+  transfer: 'transfer',
+  wait_response: 'waitResponse',
+};
+
+const VF_TO_STEP_TYPE = {};
+Object.entries(STEP_TO_VF_TYPE).forEach(([k, v]) => { VF_TO_STEP_TYPE[v] = k; });
+
+// ============================================================
+// Store / Route
+// ============================================================
 const store = useStore();
 const route = useRoute();
 const router = useRouter();
@@ -688,6 +857,9 @@ const isEditing = computed(() => !!flowId.value);
 const flows = useMapGetter('conversationFlows/getRecords');
 const inboxes = useMapGetter('inboxes/getInboxes');
 
+// ============================================================
+// State
+// ============================================================
 const flowName = ref('');
 const inboxId = ref('');
 const triggerType = ref('conversation_created');
@@ -695,11 +867,9 @@ const isActive = ref(true);
 const isSaving = ref(false);
 const showSidebar = ref(false);
 const sidebarTab = ref('node');
-const showAddMenu = ref(false);
 const avatarPreview = ref('');
 const avatarFile = ref(null);
 const avatarInputRef = ref(null);
-const flowWrapper = ref(null);
 
 const botConfig = reactive({
   bot_name: '',
@@ -709,61 +879,235 @@ const botConfig = reactive({
   offline_message: '',
 });
 
-// Vue Flow state
-const nodes = ref([]);
-const edges = ref([]);
-const selectedNodeId = ref(null);
-const draggedType = ref(null);
+// Steps data model - flat object keyed by step key
+const steps = reactive({});
 
-const nodeTypes = {};
+const selectedNodeKey = ref('');
+const editingKey = ref('');
 
-const defaultEdgeOptions = {
-  type: 'smoothstep',
-  animated: true,
-  style: { stroke: '#94a3b8', strokeWidth: 2 },
-  markerEnd: { type: 'arrowclosed', color: '#94a3b8' },
-};
+// Vue Flow nodes and edges
+const vfNodes = ref([]);
+const vfEdges = ref([]);
 
-const { screenToFlowCoordinate, addNodes, addEdges, removeNodes, removeEdges, getNode, fitView, getViewport } = useVueFlow();
+// Add menu state
+const addMenuVisible = ref(false);
+const addMenuParentKey = ref('');
+const addMenuContext = ref('');
 
-// --- Selected node computed ---
-const selectedNode = computed(() => {
-  if (!selectedNodeId.value) return null;
-  return nodes.value.find(n => n.id === selectedNodeId.value) || null;
+// ============================================================
+// Computed
+// ============================================================
+const allStepKeys = computed(() => Object.keys(steps));
+
+const selectedStep = computed(() => {
+  if (!selectedNodeKey.value || !steps[selectedNodeKey.value]) return null;
+  return steps[selectedNodeKey.value];
 });
 
-// --- Helpers ---
-const nodeTypeColor = (type) => {
-  const map = {
-    start: 'mc-node__dot--green',
-    message: 'mc-node__dot--blue',
-    text: 'mc-node__dot--purple',
-    action: 'mc-node__dot--amber',
-  };
-  return map[type] || 'mc-node__dot--blue';
+const otherStepKeys = computed(() => {
+  return allStepKeys.value.filter(k => k !== selectedNodeKey.value);
+});
+
+// ============================================================
+// Helpers
+// ============================================================
+const truncate = (text, max) => {
+  if (!text) return '';
+  return text.length > max ? text.substring(0, max) + '...' : text;
 };
 
-const actionIcon = (type) => {
-  const icons = {
-    assign_team: '\u{1F465}',
-    assign_agent: '\u{1F464}',
-    add_label: '\u{1F3F7}\uFE0F',
-    handoff: '\u{1F44B}',
-    resolve: '\u{2705}',
-  };
-  return icons[type] || '\u{26A1}';
+const fieldIcon = (type) => {
+  const icons = { email: '\u{1F4E7}', phone: '\u{1F4F1}', text: '\u{1F4DD}', select: '\u{1F4CB}' };
+  return icons[type] || '\u{1F4DD}';
 };
 
-const actionDetail = (act) => {
-  if (act.type === 'add_label' && act.label) return `: ${act.label}`;
-  if (act.type === 'assign_team' && act.team_id) return `: ${act.team_id}`;
-  if (act.type === 'assign_agent' && act.agent_id) return `: ${act.agent_id}`;
+const validationIcon = (v) => {
+  if (v === 'email') return '\u{1F4E7}';
+  if (v === 'phone') return '\u{1F4F1}';
+  return '\u{1F4AC}';
+};
+
+const validationLabel = (v) => {
+  if (v === 'email') return 'email';
+  if (v === 'phone') return 'telefone';
+  return 'texto livre';
+};
+
+const nodeTypeLabel = (type) => {
+  const labels = {
+    message: 'Mensagem',
+    collect_data: 'Pedir Dados',
+    check_hours: 'Verificar Horario',
+    transfer: 'Transferir',
+    wait_response: 'Aguardar Resposta',
+  };
+  return labels[type] || type;
+};
+
+const edgeLabelClass = (edge) => {
+  if (edge.data?.branch === 'open') return 'vf-edge-label--green';
+  if (edge.data?.branch === 'closed') return 'vf-edge-label--orange';
+  if (edge.data?.branch === 'option') return 'vf-edge-label--blue';
   return '';
 };
 
+const nodeHasNoOutgoing = (id) => {
+  return !vfEdges.value.some(e => e.source === id);
+};
+
+// ============================================================
+// Steps <-> VueFlow conversion
+// ============================================================
+function stepsToNodesAndEdges(stepsObj) {
+  const nodes = [];
+  const edges = [];
+
+  Object.entries(stepsObj).forEach(([key, step]) => {
+    const vfType = STEP_TO_VF_TYPE[step.type] || 'message';
+    nodes.push({
+      id: key,
+      type: vfType,
+      position: { x: 0, y: 0 },
+      data: { ...step },
+    });
+
+    if (step.type === 'message' && step.options && step.options.length > 0) {
+      step.options.forEach((opt, idx) => {
+        if (opt.next_step && stepsObj[opt.next_step]) {
+          edges.push({
+            id: `${key}-opt${idx}-${opt.next_step}`,
+            source: key,
+            target: opt.next_step,
+            sourceHandle: `opt-${idx}`,
+            type: 'smoothstep',
+            animated: true,
+            style: { stroke: '#94a3b8', strokeWidth: 2 },
+            label: opt.title || opt.value || '',
+            data: { branch: 'option' },
+          });
+        }
+      });
+    } else if (step.type === 'check_hours') {
+      if (step.open_next && stepsObj[step.open_next]) {
+        edges.push({
+          id: `${key}-open-${step.open_next}`,
+          source: key,
+          target: step.open_next,
+          sourceHandle: 'open',
+          type: 'smoothstep',
+          animated: true,
+          style: { stroke: '#22c55e', strokeWidth: 2 },
+          label: 'Quando em aberto',
+          data: { branch: 'open' },
+        });
+      }
+      if (step.closed_next && stepsObj[step.closed_next]) {
+        edges.push({
+          id: `${key}-closed-${step.closed_next}`,
+          source: key,
+          target: step.closed_next,
+          sourceHandle: 'closed',
+          type: 'smoothstep',
+          animated: true,
+          style: { stroke: '#f97316', strokeWidth: 2 },
+          label: 'Quando fechado',
+          data: { branch: 'closed' },
+        });
+      }
+    } else if (step.next_step && stepsObj[step.next_step]) {
+      edges.push({
+        id: `${key}-next-${step.next_step}`,
+        source: key,
+        target: step.next_step,
+        type: 'smoothstep',
+        animated: true,
+        style: { stroke: '#94a3b8', strokeWidth: 2 },
+      });
+    }
+  });
+
+  const laid = layoutNodes(nodes, edges);
+  return { nodes: laid, edges };
+}
+
+function rebuildAll() {
+  const { nodes, edges } = stepsToNodesAndEdges(steps);
+  vfNodes.value = nodes;
+  vfEdges.value = edges;
+}
+
+function rebuildEdges() {
+  // Keep existing node positions, only rebuild edges
+  const { edges } = stepsToNodesAndEdges(steps);
+  vfEdges.value = edges;
+}
+
+function syncStepToVueFlow(key) {
+  if (!key || !steps[key]) return;
+  const idx = vfNodes.value.findIndex(n => n.id === key);
+  if (idx >= 0) {
+    vfNodes.value[idx] = {
+      ...vfNodes.value[idx],
+      data: { ...steps[key] },
+    };
+  }
+}
+
+function doAutoLayout() {
+  const edges = vfEdges.value;
+  const nodes = vfNodes.value.map(n => ({ ...n }));
+  const laid = layoutNodes(nodes, edges);
+  vfNodes.value = laid;
+}
+
+// ============================================================
+// Vue Flow event handlers
+// ============================================================
+function onNodeClick({ node }) {
+  selectedNodeKey.value = node.id;
+  editingKey.value = node.id;
+  sidebarTab.value = 'node';
+  showSidebar.value = true;
+}
+
+function onPaneClick() {
+  selectedNodeKey.value = '';
+  if (sidebarTab.value === 'node') {
+    showSidebar.value = false;
+  }
+}
+
+function onConnect(params) {
+  const sourceNode = steps[params.source];
+  if (!sourceNode) return;
+
+  const targetKey = params.target;
+  const sourceHandle = params.sourceHandle;
+
+  if (sourceNode.type === 'message' && sourceHandle && sourceHandle.startsWith('opt-')) {
+    const idx = parseInt(sourceHandle.replace('opt-', ''), 10);
+    if (sourceNode.options && sourceNode.options[idx]) {
+      sourceNode.options[idx].next_step = targetKey;
+    }
+  } else if (sourceNode.type === 'check_hours') {
+    if (sourceHandle === 'open') {
+      sourceNode.open_next = targetKey;
+    } else if (sourceHandle === 'closed') {
+      sourceNode.closed_next = targetKey;
+    }
+  } else {
+    sourceNode.next_step = targetKey;
+  }
+
+  rebuildEdges();
+}
+
+// ============================================================
+// Sidebar / Node operations
+// ============================================================
 const closeSidebar = () => {
   showSidebar.value = false;
-  selectedNodeId.value = null;
+  selectedNodeKey.value = '';
 };
 
 const openConfigPanel = () => {
@@ -771,223 +1115,176 @@ const openConfigPanel = () => {
   showSidebar.value = true;
 };
 
-// --- Node click handlers ---
-const onNodeClick = ({ node }) => {
-  selectedNodeId.value = node.id;
-  sidebarTab.value = 'node';
-  showSidebar.value = true;
-  showAddMenu.value = false;
-};
-
-const onPaneClick = () => {
-  selectedNodeId.value = null;
-  if (sidebarTab.value === 'node') {
-    showSidebar.value = false;
+// --- Rename step key ---
+const renameStepKey = () => {
+  const oldKey = selectedNodeKey.value;
+  const newKey = editingKey.value.trim().replace(/\s+/g, '_').toLowerCase();
+  if (!newKey || newKey === oldKey || steps[newKey]) {
+    editingKey.value = oldKey;
+    return;
   }
-  showAddMenu.value = false;
-};
 
-const onNodesChange = (changes) => {
-  // Vue Flow handles this automatically via v-model
-};
+  const stepData = { ...steps[oldKey] };
+  steps[newKey] = stepData;
+  delete steps[oldKey];
 
-// --- Connection handler ---
-const onConnect = (params) => {
-  const edgeId = `e-${params.source}-${params.sourceHandle || 'default'}-${params.target}`;
-  // Remove existing edge from same source handle
-  edges.value = edges.value.filter(
-    e => !(e.source === params.source && e.sourceHandle === params.sourceHandle)
-  );
-
-  // Determine label from option title
-  let label = '';
-  const sourceNode = nodes.value.find(n => n.id === params.source);
-  if (sourceNode && params.sourceHandle && params.sourceHandle.startsWith('option-')) {
-    const optIdx = parseInt(params.sourceHandle.replace('option-', ''), 10);
-    if (sourceNode.data.options && sourceNode.data.options[optIdx]) {
-      label = sourceNode.data.options[optIdx].title || '';
+  Object.keys(steps).forEach(k => {
+    const s = steps[k];
+    if (s.options) {
+      s.options.forEach(opt => {
+        if (opt.next_step === oldKey) opt.next_step = newKey;
+      });
     }
-  }
-
-  edges.value.push({
-    id: edgeId,
-    source: params.source,
-    sourceHandle: params.sourceHandle || null,
-    target: params.target,
-    targetHandle: params.targetHandle || null,
-    label,
-    ...defaultEdgeOptions,
-  });
-};
-
-// --- Drag & Drop ---
-const onDragStart = (event, type) => {
-  draggedType.value = type;
-  event.dataTransfer.setData('application/vueflow', type);
-  event.dataTransfer.effectAllowed = 'move';
-};
-
-const onDrop = (event) => {
-  const type = event.dataTransfer.getData('application/vueflow');
-  if (!type) return;
-
-  const position = screenToFlowCoordinate({
-    x: event.clientX,
-    y: event.clientY,
+    if (s.next_step === oldKey) s.next_step = newKey;
+    if (s.open_next === oldKey) s.open_next = newKey;
+    if (s.closed_next === oldKey) s.closed_next = newKey;
   });
 
-  createNodeAtPosition(type, position);
+  selectedNodeKey.value = newKey;
+  rebuildAll();
 };
 
-// --- Add node to center of viewport ---
-const addNodeToCenter = (type) => {
-  showAddMenu.value = false;
-
-  const viewport = getViewport();
-  const wrapperEl = flowWrapper.value;
-  let centerX = 400;
-  let centerY = 300;
-
-  if (wrapperEl) {
-    const rect = wrapperEl.getBoundingClientRect();
-    const center = screenToFlowCoordinate({
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    });
-    centerX = center.x;
-    centerY = center.y;
-  }
-
-  // Offset slightly randomly so nodes don't stack
-  centerX += (Math.random() - 0.5) * 60;
-  centerY += (Math.random() - 0.5) * 60;
-
-  createNodeAtPosition(type, { x: centerX, y: centerY });
+// --- Add/remove options ---
+const addOption = () => {
+  if (!selectedStep.value) return;
+  if (!selectedStep.value.options) selectedStep.value.options = [];
+  selectedStep.value.options.push({ title: '', value: '', next_step: '' });
+  syncStepToVueFlow(selectedNodeKey.value);
 };
 
-const createNodeAtPosition = (type, position) => {
-  const nodeId = `step_${Date.now()}`;
-  let newNode;
-
-  if (type === 'message') {
-    newNode = {
-      id: nodeId,
-      type: 'message',
-      position,
-      data: {
-        label: nodeId,
-        message: '',
-        stepType: 'input_select',
-        options: [],
-      },
-    };
-  } else if (type === 'text') {
-    newNode = {
-      id: nodeId,
-      type: 'text',
-      position,
-      data: {
-        label: nodeId,
-        message: '',
-        stepType: 'text',
-      },
-    };
-  } else if (type === 'action') {
-    newNode = {
-      id: nodeId,
-      type: 'action',
-      position,
-      data: {
-        label: nodeId,
-        stepType: 'action',
-        actions: [],
-      },
-    };
-  }
-
-  if (newNode) {
-    nodes.value.push(newNode);
-    nextTick(() => {
-      selectedNodeId.value = nodeId;
-      sidebarTab.value = 'node';
-      showSidebar.value = true;
-    });
-  }
+const removeOption = (idx) => {
+  if (!selectedStep.value || !selectedStep.value.options) return;
+  selectedStep.value.options.splice(idx, 1);
+  syncStepToVueFlow(selectedNodeKey.value);
+  rebuildEdges();
 };
 
-// --- Node editing helpers ---
-const updateNodeData = () => {
-  if (!selectedNode.value) return;
-  const idx = nodes.value.findIndex(n => n.id === selectedNodeId.value);
-  if (idx >= 0) {
-    nodes.value[idx] = {
-      ...nodes.value[idx],
-      data: { ...nodes.value[idx].data },
-    };
-  }
+// --- Add/remove fields (collect_data) ---
+const addField = () => {
+  if (!selectedStep.value) return;
+  if (!selectedStep.value.fields) selectedStep.value.fields = [];
+  selectedStep.value.fields.push({ name: '', label: '', type: 'text', required: false });
+  syncStepToVueFlow(selectedNodeKey.value);
 };
 
-const updateNodeLabel = () => {
-  if (!selectedNode.value) return;
-  updateNodeData();
-};
-
-const addOptionToSelected = () => {
-  if (!selectedNode.value) return;
-  if (!selectedNode.value.data.options) {
-    selectedNode.value.data.options = [];
-  }
-  selectedNode.value.data.options.push({ title: '', value: '', next_step: '' });
-  updateNodeData();
-};
-
-const removeOptionFromSelected = (idx) => {
-  if (!selectedNode.value || !selectedNode.value.data.options) return;
-  const handleId = `option-${idx}`;
-  edges.value = edges.value.filter(
-    e => !(e.source === selectedNodeId.value && e.sourceHandle === handleId)
-  );
-  selectedNode.value.data.options.splice(idx, 1);
-  edges.value = edges.value.map(e => {
-    if (e.source === selectedNodeId.value && e.sourceHandle) {
-      const match = e.sourceHandle.match(/^option-(\d+)$/);
-      if (match) {
-        const eIdx = parseInt(match[1], 10);
-        if (eIdx > idx) {
-          return { ...e, sourceHandle: `option-${eIdx - 1}`, id: `e-${e.source}-option-${eIdx - 1}-${e.target}` };
-        }
-      }
-    }
-    return e;
-  });
-  updateNodeData();
-};
-
-const addActionToSelected = () => {
-  if (!selectedNode.value) return;
-  if (!selectedNode.value.data.actions) {
-    selectedNode.value.data.actions = [];
-  }
-  selectedNode.value.data.actions.push({ type: 'assign_team' });
-  updateNodeData();
-};
-
-const removeActionFromSelected = (idx) => {
-  if (!selectedNode.value || !selectedNode.value.data.actions) return;
-  selectedNode.value.data.actions.splice(idx, 1);
-  updateNodeData();
-};
-
+// --- Delete node ---
 const deleteSelectedNode = () => {
-  if (!selectedNodeId.value) return;
-  const id = selectedNodeId.value;
-  edges.value = edges.value.filter(e => e.source !== id && e.target !== id);
-  nodes.value = nodes.value.filter(n => n.id !== id);
-  selectedNodeId.value = null;
+  const key = selectedNodeKey.value;
+  if (!key || key === 'start') return;
+
+  Object.keys(steps).forEach(k => {
+    const s = steps[k];
+    if (s.options) {
+      s.options.forEach(opt => {
+        if (opt.next_step === key) opt.next_step = '';
+      });
+    }
+    if (s.next_step === key) s.next_step = '';
+    if (s.open_next === key) s.open_next = '';
+    if (s.closed_next === key) s.closed_next = '';
+  });
+
+  delete steps[key];
+  selectedNodeKey.value = '';
   showSidebar.value = false;
+  rebuildAll();
 };
 
-// --- Avatar upload ---
+// --- Add node (from inline "+" button on a node) ---
+const onAddFromNode = (parentKey) => {
+  addMenuParentKey.value = parentKey;
+  addMenuContext.value = 'next';
+  addMenuVisible.value = true;
+};
+
+// --- Add node (FAB button, no parent) ---
+const onFabAdd = () => {
+  addMenuParentKey.value = '';
+  addMenuContext.value = '';
+  addMenuVisible.value = true;
+};
+
+const confirmAddNode = (type) => {
+  addMenuVisible.value = false;
+  const parentKey = addMenuParentKey.value;
+  const context = addMenuContext.value;
+
+  let baseKey = type + '_' + Date.now().toString(36);
+  while (steps[baseKey]) {
+    baseKey = type + '_' + Math.random().toString(36).substring(2, 8);
+  }
+
+  const newStep = { type };
+  if (type === 'message') {
+    newStep.message = '';
+    newStep.options = [];
+  } else if (type === 'collect_data') {
+    newStep.message = 'Poderia me informar os seus dados?';
+    newStep.fields = [
+      { name: 'email', label: 'E-mail', type: 'email', required: true },
+    ];
+    newStep.next_step = '';
+  } else if (type === 'check_hours') {
+    newStep.open_next = '';
+    newStep.closed_next = '';
+  } else if (type === 'transfer') {
+    newStep.message = '';
+    newStep.team_id = null;
+    newStep.agent_id = null;
+  } else if (type === 'wait_response') {
+    newStep.message = '';
+    newStep.variable = '';
+    newStep.validation = '';
+    newStep.next_step = '';
+  }
+
+  steps[baseKey] = newStep;
+
+  // Wire up parent -> new node
+  if (parentKey && steps[parentKey]) {
+    const parent = steps[parentKey];
+    if (parent.type === 'message' && context === 'next') {
+      if (!parent.options || parent.options.length === 0) {
+        if (!parent.next_step) parent.next_step = baseKey;
+      }
+    } else if (parent.type === 'collect_data' || parent.type === 'wait_response') {
+      if (!parent.next_step) parent.next_step = baseKey;
+    } else if (parent.type === 'check_hours') {
+      if (!parent.open_next) parent.open_next = baseKey;
+      else if (!parent.closed_next) parent.closed_next = baseKey;
+    } else {
+      if (!parent.next_step) parent.next_step = baseKey;
+    }
+  }
+
+  rebuildAll();
+
+  nextTick(() => {
+    selectedNodeKey.value = baseKey;
+    editingKey.value = baseKey;
+    sidebarTab.value = 'node';
+    showSidebar.value = true;
+  });
+};
+
+const createRootNode = () => {
+  steps.start = {
+    type: 'message',
+    message: '',
+    options: [],
+  };
+  rebuildAll();
+  nextTick(() => {
+    selectedNodeKey.value = 'start';
+    editingKey.value = 'start';
+    sidebarTab.value = 'node';
+    showSidebar.value = true;
+  });
+};
+
+// ============================================================
+// Avatar upload
+// ============================================================
 const handleAvatarUpload = (event) => {
   const file = event.target.files[0];
   if (!file) return;
@@ -1035,177 +1332,19 @@ const uploadAvatar = async () => {
   }
 };
 
-// --- Convert steps object to nodes + edges ---
-const stepsToNodesAndEdges = (stepsObj, config) => {
-  const newNodes = [];
-  const newEdges = [];
-  let yOffset = 0;
-  const xBase = 300;
-  const ySpacing = 200;
-
-  const startNode = {
-    id: 'start',
-    type: 'start',
-    position: { x: xBase, y: 0 },
-    data: {
-      greeting: config?.greeting || botConfig.greeting || '',
-    },
-  };
-  newNodes.push(startNode);
-  yOffset += ySpacing;
-
-  const stepKeys = Object.keys(stepsObj);
-  const stepPositions = {};
-
-  stepKeys.forEach((key, index) => {
-    const step = stepsObj[key];
-    const pos = step.position || { x: xBase + (index % 3) * 350, y: yOffset + Math.floor(index / 3) * ySpacing };
-    stepPositions[key] = pos;
-
-    if (step.type === 'action') {
-      newNodes.push({
-        id: key,
-        type: 'action',
-        position: pos,
-        data: {
-          label: key,
-          stepType: 'action',
-          actions: (step.actions || []).map(a => ({ ...a })),
-        },
-      });
-    } else if (step.type === 'text') {
-      newNodes.push({
-        id: key,
-        type: 'text',
-        position: pos,
-        data: {
-          label: key,
-          message: step.message || '',
-          stepType: 'text',
-        },
-      });
-    } else {
-      newNodes.push({
-        id: key,
-        type: 'message',
-        position: pos,
-        data: {
-          label: key,
-          message: step.message || '',
-          stepType: step.type || 'input_select',
-          options: (step.options || []).map(o => ({ ...o })),
-        },
-      });
-    }
-  });
-
-  stepKeys.forEach((key) => {
-    const step = stepsObj[key];
-    if (step.options && step.options.length) {
-      step.options.forEach((opt, idx) => {
-        if (opt.next_step && stepKeys.includes(opt.next_step)) {
-          newEdges.push({
-            id: `e-${key}-option-${idx}-${opt.next_step}`,
-            source: key,
-            sourceHandle: `option-${idx}`,
-            target: opt.next_step,
-            label: opt.title || '',
-            ...defaultEdgeOptions,
-          });
-        }
-      });
-    }
-    if (step.next_step && stepKeys.includes(step.next_step)) {
-      newEdges.push({
-        id: `e-${key}-default-${step.next_step}`,
-        source: key,
-        target: step.next_step,
-        ...defaultEdgeOptions,
-      });
-    }
-  });
-
-  if (stepKeys.length > 0) {
-    const firstKey = stepKeys[0];
-    newEdges.push({
-      id: `e-start-${firstKey}`,
-      source: 'start',
-      target: firstKey,
-      label: 'inicio',
-      ...defaultEdgeOptions,
-    });
-  }
-
-  return { nodes: newNodes, edges: newEdges };
-};
-
-// --- Convert nodes + edges back to steps object ---
-const nodesToSteps = () => {
-  const stepsObj = {};
-
-  nodes.value.forEach((node) => {
-    if (node.type === 'start') return;
-
-    const key = node.data.label || node.id;
-    const stepData = {
-      message: node.data.message || '',
-      type: node.data.stepType || 'text',
-      position: { x: node.position.x, y: node.position.y },
-    };
-
-    if (node.type === 'message') {
-      const options = (node.data.options || []).map((opt, idx) => {
-        const optData = {
-          title: opt.title || '',
-          value: opt.value || '',
-          next_step: '',
-        };
-        const edge = edges.value.find(
-          e => e.source === node.id && e.sourceHandle === `option-${idx}`
-        );
-        if (edge) {
-          const targetNode = nodes.value.find(n => n.id === edge.target);
-          optData.next_step = targetNode ? (targetNode.data.label || targetNode.id) : edge.target;
-        }
-        return optData;
-      });
-      stepData.options = options;
-    } else if (node.type === 'action') {
-      stepData.actions = (node.data.actions || []).map((act) => {
-        const actionObj = { type: act.type };
-        if (act.type === 'assign_team') actionObj.team_id = act.team_id;
-        if (act.type === 'assign_agent') actionObj.agent_id = act.agent_id;
-        if (act.type === 'add_label') actionObj.label = act.label;
-        return actionObj;
-      });
-    } else if (node.type === 'text') {
-      const edge = edges.value.find(e => e.source === node.id && !e.sourceHandle);
-      if (edge) {
-        const targetNode = nodes.value.find(n => n.id === edge.target);
-        stepData.next_step = targetNode ? (targetNode.data.label || targetNode.id) : edge.target;
-      }
-    }
-
-    stepsObj[key] = stepData;
-  });
-
-  return stepsObj;
-};
-
-// --- Load existing flow ---
+// ============================================================
+// Load existing flow
+// ============================================================
 const loadFlow = () => {
   if (!isEditing.value) {
-    if (nodes.value.length === 0) {
-      nodes.value = [
-        {
-          id: 'start',
-          type: 'start',
-          position: { x: 300, y: 50 },
-          data: { greeting: '' },
-        },
-      ];
-      edges.value = [];
+    if (Object.keys(steps).length === 0) {
+      steps.start = {
+        type: 'message',
+        message: '',
+        options: [],
+      };
     }
+    rebuildAll();
     return;
   }
 
@@ -1225,24 +1364,20 @@ const loadFlow = () => {
   botConfig.offline_message = config.offline_message || '';
 
   if (flow.steps && typeof flow.steps === 'object' && Object.keys(flow.steps).length > 0) {
-    const result = stepsToNodesAndEdges(flow.steps, config);
-    nodes.value = result.nodes;
-    edges.value = result.edges;
+    Object.keys(steps).forEach(k => delete steps[k]);
+    Object.keys(flow.steps).forEach(k => {
+      steps[k] = JSON.parse(JSON.stringify(flow.steps[k]));
+    });
   } else {
-    nodes.value = [
-      {
-        id: 'start',
-        type: 'start',
-        position: { x: 300, y: 50 },
-        data: { greeting: config.greeting || '' },
-      },
-    ];
-    edges.value = [];
+    Object.keys(steps).forEach(k => delete steps[k]);
+    steps.start = {
+      type: 'message',
+      message: config.greeting || '',
+      options: [],
+    };
   }
 
-  nextTick(() => {
-    fitView({ padding: 0.2 });
-  });
+  rebuildAll();
 };
 
 watch(flows, () => loadFlow());
@@ -1253,16 +1388,16 @@ onMounted(async () => {
   loadFlow();
 });
 
-// --- Save ---
+// ============================================================
+// Save
+// ============================================================
 const saveFlow = async () => {
   isSaving.value = true;
   try {
-    const stepsObj = nodesToSteps();
-
-    const startNode = nodes.value.find(n => n.type === 'start');
-    if (startNode && startNode.data.greeting) {
-      botConfig.greeting = startNode.data.greeting;
-    }
+    const stepsObj = {};
+    Object.keys(steps).forEach(k => {
+      stepsObj[k] = JSON.parse(JSON.stringify(steps[k]));
+    });
 
     if (avatarFile.value) {
       botConfig.avatar_url = await uploadAvatar();
@@ -1300,22 +1435,10 @@ const saveFlow = async () => {
     isSaving.value = false;
   }
 };
-
-// --- Helper labels ---
-const actionTypeLabel = (type) => {
-  const labels = {
-    assign_team: 'Atribuir a equipe',
-    assign_agent: 'Atribuir a agente',
-    add_label: 'Adicionar etiqueta',
-    handoff: 'Transferir para humano',
-    resolve: 'Resolver conversa',
-  };
-  return labels[type] || type;
-};
 </script>
 
 <style>
-/* Vue Flow required styles */
+/* Vue Flow base styles - must be unscoped */
 @import '@vue-flow/core/dist/style.css';
 @import '@vue-flow/core/dist/theme-default.css';
 @import '@vue-flow/controls/dist/style.css';
@@ -1335,7 +1458,7 @@ const actionTypeLabel = (type) => {
   z-index: 100;
   display: flex;
   flex-direction: column;
-  background: #f1f5f9;
+  background: #f8fafc;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 }
 
@@ -1472,366 +1595,469 @@ const actionTypeLabel = (type) => {
 }
 
 /* ============================================================
-   CANVAS AREA
+   MAIN AREA
    ============================================================ */
-.flow-canvas-area {
+.flow-main-area {
   flex: 1;
   position: relative;
   overflow: hidden;
   display: flex;
 }
 
-.flow-canvas-wrapper {
+/* ============================================================
+   VUE FLOW CANVAS
+   ============================================================ */
+.flow-canvas {
   flex: 1;
-  position: relative;
   transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
 
-.flow-canvas-wrapper.sidebar-open {
+.flow-canvas.sidebar-open {
   margin-right: 400px;
 }
 
-.flow-canvas {
+.flow-canvas :deep(.vue-flow) {
   width: 100%;
   height: 100%;
-  background: #f1f5f9;
-}
-
-/* ============================================================
-   NODE CARDS (ManyChat Style)
-   ============================================================ */
-.mc-node {
-  width: 300px;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
-  overflow: visible;
-  border-left: 4px solid transparent;
-  transition: box-shadow 0.2s, transform 0.15s;
-  cursor: pointer;
-}
-
-.mc-node:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 8px 24px rgba(0, 0, 0, 0.06);
-}
-
-.mc-node--selected {
-  box-shadow: 0 0 0 2px #3b82f6, 0 2px 8px rgba(59, 130, 246, 0.2);
-}
-
-.mc-node--start {
-  border-left-color: #10b981;
-}
-
-.mc-node--start.mc-node--selected {
-  box-shadow: 0 0 0 2px #10b981, 0 2px 8px rgba(16, 185, 129, 0.2);
-}
-
-.mc-node--message {
-  border-left-color: #3b82f6;
-}
-
-.mc-node--text {
-  border-left-color: #8b5cf6;
-}
-
-.mc-node--text.mc-node--selected {
-  box-shadow: 0 0 0 2px #8b5cf6, 0 2px 8px rgba(139, 92, 246, 0.2);
-}
-
-.mc-node--action {
-  border-left-color: #f59e0b;
-}
-
-.mc-node--action.mc-node--selected {
-  box-shadow: 0 0 0 2px #f59e0b, 0 2px 8px rgba(245, 158, 11, 0.2);
-}
-
-.mc-node__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px 8px;
-}
-
-.mc-node__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.mc-node__dot--green { background: #10b981; }
-.mc-node__dot--blue { background: #3b82f6; }
-.mc-node__dot--purple { background: #8b5cf6; }
-.mc-node__dot--amber { background: #f59e0b; }
-
-.mc-node__key {
-  font-size: 13px;
-  font-weight: 600;
-  color: #334155;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mc-node__divider {
-  height: 1px;
-  background: #f1f5f9;
-  margin: 0 16px;
-}
-
-.mc-node__body {
-  padding: 10px 16px 14px;
-}
-
-.mc-node__preview {
-  font-size: 12px;
-  color: #64748b;
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin: 0;
-}
-
-.mc-node__empty {
-  font-size: 12px;
-  color: #94a3b8;
-  font-style: italic;
-  margin: 0;
-}
-
-/* Options inside message nodes */
-.mc-node__options {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.mc-option {
-  position: relative;
-  display: flex;
-  align-items: center;
-  padding: 8px 30px 8px 12px;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  border-radius: 8px;
-  color: #0369a1;
-  font-size: 12px;
-  font-weight: 500;
-  transition: background 0.15s;
-}
-
-.mc-option__label {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mc-option__arrow {
-  color: #0369a1;
-  opacity: 0.5;
-  margin-left: 4px;
-}
-
-/* Action items inside action nodes */
-.mc-node__actions {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 8px;
-}
-
-.mc-action-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: #fffbeb;
-  border-radius: 6px;
-  font-size: 11px;
-  color: #92400e;
-}
-
-.mc-action-item__icon {
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.mc-action-item__text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ============================================================
-   HANDLES
-   ============================================================ */
-.mc-handle {
-  width: 12px !important;
-  height: 12px !important;
-  border-radius: 50% !important;
-  border: 2px solid white !important;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.06) !important;
-  transition: transform 0.15s !important;
-}
-
-.mc-handle:hover {
-  transform: scale(1.3) !important;
-}
-
-.mc-handle--source {
-  background: #3b82f6 !important;
-}
-
-.mc-handle--target {
-  background: #94a3b8 !important;
-}
-
-.mc-handle--option {
-  position: absolute !important;
-  right: -8px !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  width: 10px !important;
-  height: 10px !important;
-  background: #0ea5e9 !important;
-}
-
-.mc-handle--option:hover {
-  transform: translateY(-50%) scale(1.3) !important;
-}
-
-/* ============================================================
-   FLOATING ADD BUTTON (FAB)
-   ============================================================ */
-.flow-fab-container {
-  position: absolute;
-  bottom: 24px;
-  right: 24px;
-  z-index: 30;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.flow-fab-container.sidebar-open {
-  right: 424px;
-}
-
-.flow-fab {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4), 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s;
-}
-
-.flow-fab:hover {
-  background: #2563eb;
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5), 0 2px 6px rgba(0, 0, 0, 0.1);
-  transform: scale(1.05);
-}
-
-.flow-fab--active {
-  background: #1e293b;
-  border-radius: 16px;
-}
-
-.flow-fab--active:hover {
-  background: #0f172a;
-  box-shadow: 0 6px 20px rgba(30, 41, 59, 0.5), 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.flow-fab__icon {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.flow-fab--active .flow-fab__icon {
-  transform: rotate(45deg);
-}
-
-.flow-fab-menu {
-  display: flex;
-  flex-direction: column;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06);
-  overflow: hidden;
-  min-width: 180px;
-}
-
-.flow-fab-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  font-size: 14px;
-  color: #334155;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: background 0.15s;
-  text-align: left;
-}
-
-.flow-fab-menu-item:hover {
   background: #f8fafc;
 }
 
-.flow-fab-menu-item:not(:last-child) {
-  border-bottom: 1px solid #f1f5f9;
+.flow-empty-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
 }
 
-.flow-fab-menu-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.flow-fab-menu-dot--blue { background: #3b82f6; }
-.flow-fab-menu-dot--purple { background: #8b5cf6; }
-.flow-fab-menu-dot--amber { background: #f59e0b; }
-
-/* FAB menu transitions */
-.fab-menu-enter-active {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.fab-menu-leave-active {
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.fab-menu-enter-from,
-.fab-menu-leave-to {
-  opacity: 0;
-  transform: translateY(8px) scale(0.95);
+.flow-empty-overlay > * {
+  pointer-events: auto;
 }
 
 /* ============================================================
-   RIGHT SIDEBAR (400px)
+   CUSTOM VUE FLOW NODES
+   ============================================================ */
+.vf-node {
+  width: 300px;
+  background: white;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid;
+  padding: 14px 16px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s;
+  user-select: none;
+  position: relative;
+}
+
+.vf-node:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.vf-node--selected {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.vf-node--message { border-left-color: #0ea5e9; }
+.vf-node--collectData { border-left-color: #10b981; }
+.vf-node--transfer { border-left-color: #f97316; }
+.vf-node--waitResponse { border-left-color: #8b5cf6; }
+
+.vf-node__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.vf-node__icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.vf-node__key {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vf-node__text {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0 0 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.vf-node__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.vf-node__badge--message { background: #e0f2fe; color: #0369a1; }
+.vf-node__badge--collectData { background: #d1fae5; color: #065f46; }
+.vf-node__badge--transfer { background: #ffedd5; color: #9a3412; }
+.vf-node__badge--waitResponse { background: #ede9fe; color: #5b21b6; }
+
+.vf-node__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.vf-node__option-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: #3b82f6;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.vf-node__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.vf-node__field-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  gap: 2px;
+}
+
+.vf-node__validation-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: #ede9fe;
+  color: #5b21b6;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 4px;
+}
+
+.vf-node__add-btn {
+  position: absolute;
+  bottom: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  border: 2px dashed #cbd5e1;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.vf-node__add-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
+  transform: translateX(-50%) scale(1.15);
+}
+
+/* ============================================================
+   DIAMOND NODE (Check Hours)
+   ============================================================ */
+.vf-node-diamond-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  width: 80px;
+  padding: 10px 0;
+}
+
+.vf-node-diamond-wrap.vf-node--selected .vf-node-diamond {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 3px;
+}
+
+.vf-node-diamond {
+  width: 56px;
+  height: 56px;
+  background: #3b82f6;
+  border-radius: 10px;
+  transform: rotate(45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  transition: all 0.2s;
+}
+
+.vf-node-diamond:hover {
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+}
+
+.vf-node-diamond__icon {
+  transform: rotate(-45deg);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.vf-node-diamond__label {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   VUE FLOW HANDLES
+   ============================================================ */
+.vf-handle {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  border: 2px solid #94a3b8 !important;
+  background: white !important;
+}
+
+.vf-handle--target {
+  top: -5px !important;
+}
+
+.vf-handle--source {
+  bottom: -5px !important;
+}
+
+.vf-handle--source-pill {
+  width: 8px !important;
+  height: 8px !important;
+  border: 2px solid #3b82f6 !important;
+  background: white !important;
+}
+
+.vf-handle--source-green {
+  border-color: #22c55e !important;
+  left: -5px !important;
+}
+
+.vf-handle--source-orange {
+  border-color: #f97316 !important;
+  right: -5px !important;
+}
+
+/* ============================================================
+   EDGE LABELS
+   ============================================================ */
+.vf-edge-label {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #475569;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.vf-edge-label--green { background: #d1fae5; color: #065f46; }
+.vf-edge-label--orange { background: #ffedd5; color: #9a3412; }
+.vf-edge-label--blue { background: #dbeafe; color: #1d4ed8; }
+
+/* ============================================================
+   FLOATING ADD BUTTON
+   ============================================================ */
+.fab-add {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.fab-add:hover {
+  background: #2563eb;
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.tree-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.tree-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tree-empty-text {
+  font-size: 15px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.tree-empty-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tree-empty-btn:hover {
+  background: #2563eb;
+}
+
+/* ============================================================
+   ADD MENU OVERLAY
+   ============================================================ */
+.add-menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.add-menu-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  min-width: 320px;
+  max-width: 400px;
+}
+
+.add-menu-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  padding: 12px 16px 8px;
+}
+
+.add-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.add-menu-item:hover {
+  background: #f8fafc;
+}
+
+.add-menu-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.add-menu-dot--message { background: #e0f2fe; }
+.add-menu-dot--message::after { content: '\1F4AC'; }
+.add-menu-dot--collect_data { background: #d1fae5; }
+.add-menu-dot--collect_data::after { content: '\1F4CB'; }
+.add-menu-dot--check_hours { background: #dbeafe; }
+.add-menu-dot--check_hours::after { content: '\23F0'; }
+.add-menu-dot--transfer { background: #ffedd5; }
+.add-menu-dot--transfer::after { content: '\1F500'; }
+.add-menu-dot--wait_response { background: #ede9fe; }
+.add-menu-dot--wait_response::after { content: '\231B'; }
+
+.add-menu-item-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.add-menu-item-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* ============================================================
+   RIGHT SIDEBAR
    ============================================================ */
 .flow-sidebar {
   position: absolute;
   top: 0;
   right: 0;
-  bottom: 0;
   width: 400px;
+  height: 100%;
   background: #ffffff;
   border-left: 1px solid #e2e8f0;
   display: flex;
@@ -1854,6 +2080,19 @@ const actionTypeLabel = (type) => {
   align-items: center;
   gap: 10px;
 }
+
+.sidebar-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sidebar-dot--message { background: #0ea5e9; }
+.sidebar-dot--collect_data { background: #10b981; }
+.sidebar-dot--check_hours { background: #3b82f6; }
+.sidebar-dot--transfer { background: #f97316; }
+.sidebar-dot--wait_response { background: #8b5cf6; }
 
 .flow-sidebar__title {
   font-size: 15px;
@@ -1886,19 +2125,6 @@ const actionTypeLabel = (type) => {
   padding: 20px;
 }
 
-.flow-sidebar__empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: #94a3b8;
-  font-size: 14px;
-  padding: 40px;
-  text-align: center;
-}
-
 .flow-sidebar__section {
   margin-bottom: 20px;
 }
@@ -1912,16 +2138,17 @@ const actionTypeLabel = (type) => {
 
 .flow-sidebar__label {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 8px;
+  color: #475569;
+  margin-bottom: 6px;
 }
 
-.flow-sidebar__section-header .flow-sidebar__label {
-  margin-bottom: 0;
+.flow-sidebar__label-sm {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
 }
 
 .flow-sidebar__label-detail {
@@ -1930,65 +2157,64 @@ const actionTypeLabel = (type) => {
 }
 
 .flow-sidebar__input {
-  display: block;
   width: 100%;
-  height: 40px;
-  padding: 0 12px;
+  height: 38px;
   border-radius: 8px;
-  font-size: 14px;
-  color: #1e293b;
-  background: #f8fafc;
   border: 1px solid #e2e8f0;
+  padding: 0 12px;
+  font-size: 13px;
+  color: #1e293b;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s;
+  background: #fafbfc;
+  box-sizing: border-box;
 }
 
 .flow-sidebar__input:focus {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: white;
 }
 
 .flow-sidebar__input--mono {
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 13px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
 .flow-sidebar__input--sm {
   height: 34px;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .flow-sidebar__textarea {
-  display: block;
   width: 100%;
-  padding: 10px 12px;
   border-radius: 8px;
-  font-size: 14px;
-  color: #1e293b;
-  background: #f8fafc;
   border: 1px solid #e2e8f0;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #1e293b;
   outline: none;
   resize: vertical;
-  line-height: 1.5;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  min-height: 60px;
+  transition: border-color 0.15s;
+  background: #fafbfc;
+  font-family: inherit;
+  box-sizing: border-box;
 }
 
 .flow-sidebar__textarea:focus {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: white;
 }
 
 .flow-sidebar__select {
-  display: block;
   width: 100%;
-  height: 40px;
-  padding: 0 12px;
+  height: 38px;
   border-radius: 8px;
-  font-size: 14px;
-  color: #1e293b;
-  background: #f8fafc;
   border: 1px solid #e2e8f0;
+  padding: 0 12px;
+  font-size: 13px;
+  color: #1e293b;
   outline: none;
+  background: #fafbfc;
   cursor: pointer;
   transition: border-color 0.15s;
 }
@@ -1999,43 +2225,53 @@ const actionTypeLabel = (type) => {
 
 .flow-sidebar__select--sm {
   height: 34px;
-  font-size: 13px;
+  font-size: 12px;
   flex: 1;
+}
+
+.flow-sidebar__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #475569;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .flow-sidebar__add-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
-  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: #eff6ff;
   color: #3b82f6;
-  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
   border: none;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
   transition: background 0.15s;
 }
 
 .flow-sidebar__add-btn:hover {
-  background: #eff6ff;
+  background: #dbeafe;
 }
 
 .flow-sidebar__options-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .flow-sidebar__option-card {
-  padding: 12px;
-  border-radius: 10px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .flow-sidebar__option-row {
@@ -2045,46 +2281,46 @@ const actionTypeLabel = (type) => {
 }
 
 .flow-sidebar__option-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #475569;
   font-size: 11px;
-  font-weight: 600;
-  color: #94a3b8;
-  font-family: monospace;
-  width: 18px;
-  text-align: center;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
 .flow-sidebar__remove-btn {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: #ef4444;
   background: transparent;
   border: none;
   cursor: pointer;
   flex-shrink: 0;
-  transition: all 0.15s;
+  transition: background 0.15s;
 }
 
 .flow-sidebar__remove-btn:hover {
   background: #fef2f2;
-  color: #dc2626;
 }
 
 .flow-sidebar__hint {
-  font-size: 12px;
+  font-size: 11px;
   color: #94a3b8;
-  line-height: 1.5;
-  margin: 0;
 }
 
 .flow-sidebar__range {
   width: 100%;
-  accent-color: #3b82f6;
-  margin-top: 4px;
+  margin: 4px 0;
 }
 
 .flow-sidebar__range-labels {
@@ -2092,27 +2328,25 @@ const actionTypeLabel = (type) => {
   justify-content: space-between;
   font-size: 11px;
   color: #94a3b8;
-  margin-top: 2px;
 }
 
 /* Avatar */
 .flow-sidebar__avatar-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
-  margin-top: 8px;
 }
 
 .flow-sidebar__avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
   background: #f1f5f9;
-  flex-shrink: 0;
   overflow: hidden;
-  position: relative;
   cursor: pointer;
-  border: 2px solid #e2e8f0;
+  position: relative;
+  flex-shrink: 0;
+  border: 1px solid #e2e8f0;
 }
 
 .flow-sidebar__avatar-img {
@@ -2147,32 +2381,30 @@ const actionTypeLabel = (type) => {
 .flow-sidebar__avatar-actions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .flow-sidebar__avatar-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
-  padding: 0 12px;
+  padding: 6px 12px;
   border-radius: 6px;
+  background: #f1f5f9;
+  color: #475569;
   font-size: 12px;
   font-weight: 500;
-  color: #3b82f6;
-  background: transparent;
-  border: 1px solid #bfdbfe;
+  border: none;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s;
 }
 
 .flow-sidebar__avatar-btn:hover {
-  background: #eff6ff;
+  background: #e2e8f0;
 }
 
 .flow-sidebar__avatar-btn--danger {
-  color: #dc2626;
-  border-color: #fecaca;
+  color: #ef4444;
 }
 
 .flow-sidebar__avatar-btn--danger:hover {
@@ -2188,7 +2420,7 @@ const actionTypeLabel = (type) => {
 
 .flow-sidebar__toggle-title {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: #1e293b;
 }
 
@@ -2199,13 +2431,13 @@ const actionTypeLabel = (type) => {
 }
 
 .flow-sidebar__toggle {
-  position: relative;
   width: 44px;
   height: 24px;
   border-radius: 12px;
-  background: #cbd5e1;
+  background: #e2e8f0;
   border: none;
   cursor: pointer;
+  position: relative;
   transition: background 0.2s;
   flex-shrink: 0;
 }
@@ -2234,127 +2466,70 @@ const actionTypeLabel = (type) => {
 .flow-sidebar__danger-zone {
   margin-top: 24px;
   padding-top: 20px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #fecaca;
 }
 
 .flow-sidebar__delete-btn {
-  width: 100%;
-  height: 40px;
-  border-radius: 8px;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  font-size: 13px;
-  font-weight: 500;
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #fef2f2;
   color: #dc2626;
-  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
   border: 1px solid #fecaca;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s;
 }
 
 .flow-sidebar__delete-btn:hover {
-  background: #fef2f2;
-  border-color: #fca5a5;
+  background: #fee2e2;
 }
 
-/* Sidebar slide transition */
-.sidebar-slide-enter-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* Empty sidebar */
+.flow-sidebar__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #94a3b8;
+  font-size: 14px;
+  text-align: center;
+  padding: 40px;
 }
 
+/* ============================================================
+   TRANSITIONS
+   ============================================================ */
+.sidebar-slide-enter-active,
 .sidebar-slide-leave-active {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.sidebar-slide-enter-from {
-  transform: translateX(100%);
-  opacity: 0;
-}
-
+.sidebar-slide-enter-from,
 .sidebar-slide-leave-to {
   transform: translateX(100%);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
 }
 
 /* ============================================================
-   VUE FLOW OVERRIDES (unscoped needed for deep selectors)
+   UTILITY
    ============================================================ */
-</style>
-
-<style>
-/* Vue Flow global overrides */
-.flow-canvas .vue-flow__background {
-  background: #f1f5f9;
-}
-
-.flow-canvas .vue-flow__edge-path {
-  stroke: #94a3b8;
-  stroke-width: 2;
-}
-
-.flow-canvas .vue-flow__edge.animated .vue-flow__edge-path {
-  stroke-dasharray: 5;
-  animation: flow-dash 0.5s linear infinite;
-}
-
-@keyframes flow-dash {
-  to {
-    stroke-dashoffset: -10;
-  }
-}
-
-.flow-canvas .vue-flow__edge-textbg {
-  fill: white;
-  rx: 4;
-}
-
-.flow-canvas .vue-flow__edge-text {
-  font-size: 11px;
-  fill: #64748b;
-  font-weight: 500;
-}
-
-.flow-canvas .vue-flow__minimap {
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e2e8f0;
-}
-
-.flow-canvas .vue-flow__controls {
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e2e8f0;
-}
-
-.flow-canvas .vue-flow__controls-button {
-  background: white;
-  border-bottom: 1px solid #f1f5f9;
-  color: #475569;
-}
-
-.flow-canvas .vue-flow__controls-button:hover {
-  background: #f8fafc;
-}
-
-.flow-canvas .vue-flow__connection-line {
-  stroke: #3b82f6;
-  stroke-width: 2;
-}
-
-/* Node wrapper - remove default borders */
-.flow-canvas .vue-flow__node {
-  border: none !important;
-  border-radius: 12px;
-  box-shadow: none !important;
-  padding: 0 !important;
-  background: transparent !important;
-}
-
-.flow-canvas .vue-flow__node.selected {
-  box-shadow: none !important;
+.hidden {
+  display: none;
 }
 </style>
