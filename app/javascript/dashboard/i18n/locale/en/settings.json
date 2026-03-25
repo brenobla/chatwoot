@@ -385,7 +385,88 @@
     "DOCS": "Read docs",
     "SECURITY": "Security",
     "CAPTAIN_AI": "Captain",
-    "CONVERSATION_WORKFLOW": "Conversation Workflow"
+    "CONVERSATION_WORKFLOW": "Conversation Workflow",
+    "CONVERSATION_FLOWS": "Conversation Flows"
+  },
+  "CONVERSATION_FLOWS": {
+    "TITLE": "Conversation Flows",
+    "DESCRIPTION": "Create and manage interactive chatbot flows with clickable buttons",
+    "NEW_FLOW": "New Flow",
+    "EDIT_FLOW": "Edit Flow",
+    "DELETE_FLOW": "Delete Flow",
+    "EMPTY": {
+      "TITLE": "No flows configured",
+      "DESCRIPTION": "Create your first conversation flow to automate your support"
+    },
+    "FORM": {
+      "NAME": "Flow name",
+      "DESCRIPTION": "Description",
+      "INBOX": "Inbox",
+      "ALL_INBOXES": "All inboxes",
+      "TRIGGER_TYPE": "Trigger type",
+      "ACTIVE": "Active",
+      "SAVE": "Save"
+    },
+    "TRIGGERS": {
+      "CONVERSATION_CREATED": "New conversation",
+      "MESSAGE_CREATED": "New message",
+      "KEYWORD": "Keyword"
+    },
+    "STEPS": {
+      "TITLE": "Flow Steps",
+      "ADD": "Add Step",
+      "KEY": "Step key",
+      "MESSAGE": "Message",
+      "TYPE": "Type",
+      "TYPES": {
+        "INPUT_SELECT": "Option buttons",
+        "CARDS": "Cards",
+        "TEXT": "Plain text",
+        "ACTION": "Action"
+      },
+      "EMPTY": "No steps added"
+    },
+    "OPTIONS": {
+      "TITLE": "Options",
+      "ADD": "Add",
+      "BUTTON_TITLE": "Button title",
+      "VALUE": "Value",
+      "NEXT_STEP": "Next step"
+    },
+    "ACTIONS": {
+      "TITLE": "Actions",
+      "ADD": "Add",
+      "TYPES": {
+        "ASSIGN_TEAM": "Assign to team",
+        "ASSIGN_AGENT": "Assign to agent",
+        "ADD_LABEL": "Add label",
+        "HANDOFF": "Transfer to human",
+        "RESOLVE": "Resolve conversation"
+      }
+    },
+    "BOT_CONFIG": {
+      "TITLE": "Bot Configuration",
+      "BOT_NAME": "Bot Name",
+      "AVATAR_URL": "Avatar URL",
+      "GREETING": "Initial greeting",
+      "TYPING_DELAY": "Typing delay",
+      "OFFLINE_MESSAGE": "Offline message",
+      "ACTIVE_TOGGLE": "Flow active"
+    },
+    "PREVIEW": {
+      "TITLE": "Preview",
+      "FLOW_TREE": "Flow Tree",
+      "EMPTY": "Add steps to preview the flow"
+    },
+    "API": {
+      "CREATE_SUCCESS": "Flow created successfully",
+      "CREATE_ERROR": "Error creating flow",
+      "UPDATE_SUCCESS": "Flow updated successfully",
+      "UPDATE_ERROR": "Error updating flow",
+      "DELETE_SUCCESS": "Flow deleted successfully",
+      "DELETE_ERROR": "Error deleting flow",
+      "DELETE_CONFIRM": "Delete flow"
+    }
   },
   "CAPTAIN_SETTINGS": {
     "TITLE": "Captain Settings",

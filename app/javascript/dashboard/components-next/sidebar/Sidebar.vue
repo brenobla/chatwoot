@@ -732,6 +732,17 @@ const menuItems = computed(() => {
           to: accountScopedRoute('conversation_workflow_index'),
         },
         {
+          name: 'Conversation Flows',
+          label: t('SIDEBAR.CONVERSATION_FLOWS'),
+          icon: 'i-lucide-git-branch-plus',
+          to: accountScopedRoute('conversation_flow_index'),
+          activeOn: [
+            'conversation_flow_index',
+            'conversation_flow_new',
+            'conversation_flow_edit',
+          ],
+        },
+        {
           name: 'Settings Security',
           label: t('SIDEBAR.SECURITY'),
           icon: 'i-lucide-shield',

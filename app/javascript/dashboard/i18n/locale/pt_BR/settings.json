@@ -385,7 +385,88 @@
     "DOCS": "Ler documentos",
     "SECURITY": "Segurança",
     "CAPTAIN_AI": "Capitão",
-    "CONVERSATION_WORKFLOW": "Fluxo de Conversa"
+    "CONVERSATION_WORKFLOW": "Fluxo de Conversa",
+    "CONVERSATION_FLOWS": "Fluxos de Conversa"
+  },
+  "CONVERSATION_FLOWS": {
+    "TITLE": "Fluxos de Conversa",
+    "DESCRIPTION": "Crie e gerencie fluxos interativos de chatbot com botoes clicaveis",
+    "NEW_FLOW": "Novo Fluxo",
+    "EDIT_FLOW": "Editar Fluxo",
+    "DELETE_FLOW": "Excluir Fluxo",
+    "EMPTY": {
+      "TITLE": "Nenhum fluxo configurado",
+      "DESCRIPTION": "Crie seu primeiro fluxo de conversa para automatizar o atendimento"
+    },
+    "FORM": {
+      "NAME": "Nome do fluxo",
+      "DESCRIPTION": "Descricao",
+      "INBOX": "Caixa de entrada",
+      "ALL_INBOXES": "Todas as caixas",
+      "TRIGGER_TYPE": "Tipo de gatilho",
+      "ACTIVE": "Ativo",
+      "SAVE": "Salvar"
+    },
+    "TRIGGERS": {
+      "CONVERSATION_CREATED": "Nova conversa",
+      "MESSAGE_CREATED": "Nova mensagem",
+      "KEYWORD": "Palavra-chave"
+    },
+    "STEPS": {
+      "TITLE": "Etapas do Fluxo",
+      "ADD": "Adicionar Etapa",
+      "KEY": "Chave da etapa",
+      "MESSAGE": "Mensagem",
+      "TYPE": "Tipo",
+      "TYPES": {
+        "INPUT_SELECT": "Botoes de opcao",
+        "CARDS": "Cards",
+        "TEXT": "Texto simples",
+        "ACTION": "Acao"
+      },
+      "EMPTY": "Nenhuma etapa adicionada"
+    },
+    "OPTIONS": {
+      "TITLE": "Opcoes",
+      "ADD": "Adicionar",
+      "BUTTON_TITLE": "Titulo do botao",
+      "VALUE": "Valor",
+      "NEXT_STEP": "Proxima etapa"
+    },
+    "ACTIONS": {
+      "TITLE": "Acoes",
+      "ADD": "Adicionar",
+      "TYPES": {
+        "ASSIGN_TEAM": "Atribuir a equipe",
+        "ASSIGN_AGENT": "Atribuir a agente",
+        "ADD_LABEL": "Adicionar etiqueta",
+        "HANDOFF": "Transferir para humano",
+        "RESOLVE": "Resolver conversa"
+      }
+    },
+    "BOT_CONFIG": {
+      "TITLE": "Configuracao do Bot",
+      "BOT_NAME": "Nome do Bot",
+      "AVATAR_URL": "Avatar URL",
+      "GREETING": "Saudacao inicial",
+      "TYPING_DELAY": "Delay de digitacao",
+      "OFFLINE_MESSAGE": "Mensagem fora do horario",
+      "ACTIVE_TOGGLE": "Fluxo ativo"
+    },
+    "PREVIEW": {
+      "TITLE": "Visualizacao",
+      "FLOW_TREE": "Arvore do Fluxo",
+      "EMPTY": "Adicione etapas para visualizar o fluxo"
+    },
+    "API": {
+      "CREATE_SUCCESS": "Fluxo criado com sucesso",
+      "CREATE_ERROR": "Erro ao criar fluxo",
+      "UPDATE_SUCCESS": "Fluxo atualizado com sucesso",
+      "UPDATE_ERROR": "Erro ao atualizar fluxo",
+      "DELETE_SUCCESS": "Fluxo excluido com sucesso",
+      "DELETE_ERROR": "Erro ao excluir fluxo",
+      "DELETE_CONFIRM": "Excluir o fluxo"
+    }
   },
   "CAPTAIN_SETTINGS": {
     "TITLE": "Configurações do Capitão",
