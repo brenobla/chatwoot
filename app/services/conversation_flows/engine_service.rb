@@ -17,7 +17,24 @@ module ConversationFlows
         status: :active
       )
 
-      execute_step('start')
+      # Check if there's a greeting message we can convert to buttons
+      # instead of sending a duplicate message
+      start_step = flow.steps['start']
+      greeting_msg = conversation.messages.outgoing.where(content_type: 'text').order(:created_at).first
+
+      if greeting_msg && start_step && start_step['options'].present?
+        # Convert the existing greeting message to input_select with buttons
+        items = (start_step['options'] || []).map do |opt|
+          { title: opt['title'], value: opt['value'] || opt['title'] }
+        end
+        greeting_msg.update!(
+          content: start_step['message'],
+          content_type: 'input_select',
+          content_attributes: { items: items }
+        )
+      else
+        execute_step('start')
+      end
     end
 
     def process_message(message)
@@ -114,15 +131,31 @@ module ConversationFlows
       end
 
       # Fallback: match by text content
-      user_text = message.content.to_s.strip.downcase
+      user_text = normalize_text(message.content.to_s)
       return nil if user_text.blank?
 
-      # Try exact match on value or title
+      # Try exact match on value or title (normalized - no emojis, trimmed)
       options.find do |opt|
-        opt_value = (opt['value'] || opt['title']).to_s.downcase
-        opt_title = opt['title'].to_s.downcase
+        opt_value = normalize_text(opt['value'] || opt['title'])
+        opt_title = normalize_text(opt['title'])
         user_text == opt_value || user_text == opt_title
-      end || match_by_index(user_text, options)
+      end || match_by_contains(user_text, options) || match_by_index(user_text, options)
+    end
+
+    def normalize_text(text)
+      # Remove emojis, extra spaces, downcase
+      text.to_s.gsub(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FEFF}]|[\u{1F900}-\u{1F9FF}]|[✅🆕🔑💰📚❓💡💳🎁🔧📋💰🚀🎉👋🏷️⚡]/, '')
+              .strip.squeeze(' ').downcase
+    end
+
+    def match_by_contains(user_text, options)
+      # Partial match - user text is contained in option title/value or vice versa
+      options.find do |opt|
+        opt_value = normalize_text(opt['value'] || opt['title'])
+        opt_title = normalize_text(opt['title'])
+        opt_title.include?(user_text) || user_text.include?(opt_title) ||
+          opt_value.include?(user_text) || user_text.include?(opt_value)
+      end
     end
 
     def match_by_index(user_text, options)

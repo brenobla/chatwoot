@@ -1,27 +1,26 @@
 <template>
-  <div class="flex flex-col h-full w-full overflow-hidden">
-    <!-- Top Toolbar -->
-    <div
-      class="flex items-center justify-between px-4 py-2 border-b border-n-slate-3 bg-white z-20 flex-shrink-0"
-    >
-      <div class="flex items-center gap-3 min-w-0 flex-1">
+  <div class="flow-editor-fullscreen">
+    <!-- Top Bar -->
+    <div class="flow-topbar">
+      <div class="flow-topbar-left">
         <button
-          class="h-8 w-8 rounded-lg flex items-center justify-center text-n-slate-11 hover:bg-n-slate-3 transition-colors flex-shrink-0"
+          class="flow-topbar-btn"
           @click="$router.push({ name: 'conversation_flow_index' })"
         >
-          <span class="i-lucide-arrow-left w-4 h-4" />
+          <span class="i-lucide-arrow-left w-5 h-5" />
         </button>
+        <div class="flow-topbar-divider" />
         <input
           v-model="flowName"
           type="text"
           placeholder="Nome do fluxo"
-          class="text-lg font-medium text-n-slate-12 bg-transparent border-none outline-none flex-1 min-w-0"
+          class="flow-topbar-name"
         />
       </div>
-      <div class="flex items-center gap-3 flex-shrink-0">
+      <div class="flow-topbar-right">
         <select
           v-model="inboxId"
-          class="h-9 rounded-lg text-sm bg-n-slate-1 border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand px-3"
+          class="flow-topbar-select"
         >
           <option value="">Todas as caixas</option>
           <option
@@ -34,14 +33,21 @@
         </select>
         <select
           v-model="triggerType"
-          class="h-9 rounded-lg text-sm bg-n-slate-1 border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand px-3"
+          class="flow-topbar-select"
         >
           <option value="conversation_created">Nova conversa</option>
           <option value="message_created">Nova mensagem</option>
           <option value="keyword">Palavra-chave</option>
         </select>
         <button
-          class="h-9 px-4 rounded-lg bg-n-brand text-white text-sm font-medium hover:brightness-110 disabled:opacity-50"
+          class="flow-topbar-btn-icon"
+          title="Configuracoes do Bot"
+          @click="openConfigPanel"
+        >
+          <span class="i-lucide-settings w-4 h-4" />
+        </button>
+        <button
+          class="flow-topbar-save"
           :disabled="!flowName || isSaving"
           @click="saveFlow"
         >
@@ -49,50 +55,20 @@
             v-if="isSaving"
             class="i-lucide-loader-2 w-4 h-4 animate-spin"
           />
-          <span v-else>Salvar</span>
+          <template v-else>
+            <span class="i-lucide-check w-4 h-4" />
+            Salvar
+          </template>
         </button>
       </div>
     </div>
 
-    <!-- Main Area -->
-    <div class="flex flex-1 min-h-0 relative">
-      <!-- Left Palette -->
-      <div
-        class="w-[200px] flex-shrink-0 border-r border-n-slate-3 bg-white p-3 space-y-2 z-10 overflow-y-auto"
-      >
-        <div class="text-xs font-medium text-n-slate-9 uppercase tracking-wide mb-3">
-          Arrastar para o canvas
-        </div>
-        <div
-          class="palette-item flex items-center gap-2 px-3 py-2.5 rounded-lg border border-n-slate-3 bg-white cursor-grab hover:border-blue-300 hover:bg-blue-50/50 transition-colors select-none"
-          draggable="true"
-          @dragstart="onDragStart($event, 'message')"
-        >
-          <span class="w-3 h-3 rounded-full bg-blue-500 flex-shrink-0" />
-          <span class="text-sm text-n-slate-12">Mensagem</span>
-        </div>
-        <div
-          class="palette-item flex items-center gap-2 px-3 py-2.5 rounded-lg border border-n-slate-3 bg-white cursor-grab hover:border-green-300 hover:bg-green-50/50 transition-colors select-none"
-          draggable="true"
-          @dragstart="onDragStart($event, 'text')"
-        >
-          <span class="w-3 h-3 rounded-full bg-green-500 flex-shrink-0" />
-          <span class="text-sm text-n-slate-12">Texto</span>
-        </div>
-        <div
-          class="palette-item flex items-center gap-2 px-3 py-2.5 rounded-lg border border-n-slate-3 bg-white cursor-grab hover:border-amber-300 hover:bg-amber-50/50 transition-colors select-none"
-          draggable="true"
-          @dragstart="onDragStart($event, 'action')"
-        >
-          <span class="w-3 h-3 rounded-full bg-amber-500 flex-shrink-0" />
-          <span class="text-sm text-n-slate-12">Acao</span>
-        </div>
-      </div>
-
-      <!-- Flow Canvas -->
+    <!-- Canvas Area -->
+    <div class="flow-canvas-area">
       <div
         ref="flowWrapper"
-        class="flex-1 relative"
+        class="flow-canvas-wrapper"
+        :class="{ 'sidebar-open': showSidebar }"
         @drop="onDrop"
         @dragover.prevent
         @dragenter.prevent
@@ -106,75 +82,90 @@
           :snap-to-grid="true"
           :snap-grid="[20, 20]"
           :connection-mode="ConnectionMode.Loose"
+          class="flow-canvas"
           @connect="onConnect"
           @node-click="onNodeClick"
           @pane-click="onPaneClick"
           @nodes-change="onNodesChange"
         >
-          <Background :gap="20" :size="1" pattern-color="#e2e8f0" />
+          <Background :gap="24" :size="1.5" pattern-color="#d1d5db" />
           <Controls position="bottom-left" />
           <MiniMap position="bottom-right" />
 
           <!-- Custom Node: Start -->
           <template #node-start="nodeProps">
             <div
-              class="start-node"
-              :class="{ 'ring-2 ring-green-400': selectedNodeId === nodeProps.id }"
+              class="mc-node mc-node--start"
+              :class="{ 'mc-node--selected': selectedNodeId === nodeProps.id }"
             >
-              <div class="start-node-header">
-                <span class="i-lucide-play w-4 h-4" />
-                Inicio
+              <div class="mc-node__header">
+                <span class="mc-node__dot mc-node__dot--green" />
+                <span class="mc-node__key">start</span>
               </div>
-              <div class="start-node-body">
-                <p class="text-xs text-gray-600 line-clamp-2">
+              <div class="mc-node__divider" />
+              <div class="mc-node__body">
+                <p class="mc-node__preview">
                   {{ nodeProps.data.greeting || 'Saudacao inicial...' }}
                 </p>
               </div>
-              <Handle type="source" :position="Position.Bottom" class="flow-handle flow-handle-source" />
+              <Handle
+                type="source"
+                :position="Position.Bottom"
+                class="mc-handle mc-handle--source"
+              />
             </div>
           </template>
 
           <!-- Custom Node: Message -->
           <template #node-message="nodeProps">
             <div
-              class="message-node"
-              :class="{ 'ring-2 ring-blue-400': selectedNodeId === nodeProps.id }"
+              class="mc-node mc-node--message"
+              :class="{ 'mc-node--selected': selectedNodeId === nodeProps.id }"
             >
-              <Handle type="target" :position="Position.Top" class="flow-handle flow-handle-target" />
-              <div class="message-node-header">
-                <span class="i-lucide-message-square w-4 h-4" />
-                <span class="truncate flex-1">{{ nodeProps.data.label || 'Mensagem' }}</span>
+              <Handle
+                type="target"
+                :position="Position.Top"
+                class="mc-handle mc-handle--target"
+              />
+              <div class="mc-node__header">
+                <span class="mc-node__dot mc-node__dot--blue" />
+                <span class="mc-node__key">{{ nodeProps.data.label || 'mensagem' }}</span>
               </div>
-              <div class="message-node-body">
-                <p class="text-xs text-gray-600 line-clamp-3">
+              <div class="mc-node__divider" />
+              <div class="mc-node__body">
+                <p class="mc-node__preview">
                   {{ nodeProps.data.message || 'Texto da mensagem...' }}
                 </p>
                 <div
                   v-if="nodeProps.data.options && nodeProps.data.options.length > 0"
-                  class="mt-2 space-y-1"
+                  class="mc-node__options"
                 >
                   <div
                     v-for="(opt, idx) in nodeProps.data.options"
                     :key="idx"
-                    class="option-pill"
+                    class="mc-option"
                   >
-                    <span class="truncate flex-1 text-[11px]">{{ opt.title || '...' }}</span>
+                    <span class="mc-option__label">{{ opt.title || '...' }}</span>
+                    <span class="mc-option__arrow">
+                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                        <path d="M1 4H7M7 4L4 1M7 4L4 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </span>
                     <Handle
                       :id="`option-${idx}`"
                       type="source"
                       :position="Position.Right"
-                      class="flow-handle flow-handle-source option-handle"
-                      :style="{ top: 'auto', right: '-8px', position: 'absolute' }"
+                      class="mc-handle mc-handle--option"
                     />
                   </div>
                 </div>
               </div>
-              <!-- Fallback source handle when no options -->
+              <!-- Fallback source when no options -->
               <Handle
                 v-if="!nodeProps.data.options || nodeProps.data.options.length === 0"
                 type="source"
                 :position="Position.Bottom"
-                class="flow-handle flow-handle-source"
+                class="mc-handle mc-handle--source"
               />
             </div>
           </template>
@@ -182,49 +173,72 @@
           <!-- Custom Node: Text -->
           <template #node-text="nodeProps">
             <div
-              class="text-node"
-              :class="{ 'ring-2 ring-green-400': selectedNodeId === nodeProps.id }"
+              class="mc-node mc-node--text"
+              :class="{ 'mc-node--selected': selectedNodeId === nodeProps.id }"
             >
-              <Handle type="target" :position="Position.Top" class="flow-handle flow-handle-target" />
-              <div class="text-node-header">
-                <span class="i-lucide-type w-4 h-4" />
-                <span class="truncate flex-1">{{ nodeProps.data.label || 'Texto' }}</span>
+              <Handle
+                type="target"
+                :position="Position.Top"
+                class="mc-handle mc-handle--target"
+              />
+              <div class="mc-node__header">
+                <span class="mc-node__dot mc-node__dot--purple" />
+                <span class="mc-node__key">{{ nodeProps.data.label || 'texto' }}</span>
               </div>
-              <div class="text-node-body">
-                <p class="text-xs text-gray-600 line-clamp-3">
+              <div class="mc-node__divider" />
+              <div class="mc-node__body">
+                <p class="mc-node__preview">
                   {{ nodeProps.data.message || 'Texto simples...' }}
                 </p>
               </div>
-              <Handle type="source" :position="Position.Bottom" class="flow-handle flow-handle-source" />
+              <Handle
+                type="source"
+                :position="Position.Bottom"
+                class="mc-handle mc-handle--source"
+              />
             </div>
           </template>
 
           <!-- Custom Node: Action -->
           <template #node-action="nodeProps">
             <div
-              class="action-node"
-              :class="{ 'ring-2 ring-amber-400': selectedNodeId === nodeProps.id }"
+              class="mc-node mc-node--action"
+              :class="{ 'mc-node--selected': selectedNodeId === nodeProps.id }"
             >
-              <Handle type="target" :position="Position.Top" class="flow-handle flow-handle-target" />
-              <div class="action-node-header">
-                <span class="i-lucide-zap w-4 h-4" />
-                <span class="truncate flex-1">{{ nodeProps.data.label || 'Acao' }}</span>
+              <Handle
+                type="target"
+                :position="Position.Top"
+                class="mc-handle mc-handle--target"
+              />
+              <div class="mc-node__header">
+                <span class="mc-node__dot mc-node__dot--amber" />
+                <span class="mc-node__key">{{ nodeProps.data.label || 'acao' }}</span>
               </div>
-              <div class="action-node-body">
+              <div class="mc-node__divider" />
+              <div class="mc-node__body">
+                <p
+                  v-if="nodeProps.data.message"
+                  class="mc-node__preview"
+                >
+                  {{ nodeProps.data.message }}
+                </p>
                 <div
                   v-if="nodeProps.data.actions && nodeProps.data.actions.length > 0"
-                  class="space-y-1"
+                  class="mc-node__actions"
                 >
                   <div
                     v-for="(act, idx) in nodeProps.data.actions"
                     :key="idx"
-                    class="flex items-center gap-1 text-[11px] text-amber-800"
+                    class="mc-action-item"
                   >
-                    <span class="i-lucide-zap w-3 h-3 flex-shrink-0" />
-                    {{ actionTypeLabel(act.type) }}
+                    <span class="mc-action-item__icon">{{ actionIcon(act.type) }}</span>
+                    <span class="mc-action-item__text">{{ actionTypeLabel(act.type) }}{{ actionDetail(act) }}</span>
                   </div>
                 </div>
-                <p v-else class="text-xs text-gray-500 italic">
+                <p
+                  v-if="!nodeProps.data.actions || nodeProps.data.actions.length === 0"
+                  class="mc-node__empty"
+                >
                   Nenhuma acao configurada
                 </p>
               </div>
@@ -233,369 +247,337 @@
         </VueFlow>
       </div>
 
-      <!-- Right Sidebar -->
-      <div
-        v-if="showSidebar"
-        class="w-[370px] flex-shrink-0 border-l border-n-slate-3 bg-white z-10 flex flex-col overflow-hidden"
-      >
-        <!-- Sidebar Tabs -->
-        <div class="flex items-center border-b border-n-slate-3 flex-shrink-0">
-          <button
-            class="flex-1 py-2.5 text-sm font-medium text-center transition-colors"
-            :class="
-              sidebarTab === 'node'
-                ? 'text-n-brand border-b-2 border-n-brand'
-                : 'text-n-slate-11 border-b-2 border-transparent hover:text-n-slate-12'
-            "
-            @click="sidebarTab = 'node'"
+      <!-- Floating Add Button -->
+      <div class="flow-fab-container" :class="{ 'sidebar-open': showSidebar }">
+        <Transition name="fab-menu">
+          <div v-if="showAddMenu" class="flow-fab-menu">
+            <button class="flow-fab-menu-item" @click="addNodeToCenter('message')">
+              <span class="flow-fab-menu-dot flow-fab-menu-dot--blue" />
+              <span>Mensagem</span>
+            </button>
+            <button class="flow-fab-menu-item" @click="addNodeToCenter('text')">
+              <span class="flow-fab-menu-dot flow-fab-menu-dot--purple" />
+              <span>Texto</span>
+            </button>
+            <button class="flow-fab-menu-item" @click="addNodeToCenter('action')">
+              <span class="flow-fab-menu-dot flow-fab-menu-dot--amber" />
+              <span>Acao</span>
+            </button>
+          </div>
+        </Transition>
+        <button
+          class="flow-fab"
+          :class="{ 'flow-fab--active': showAddMenu }"
+          @click="showAddMenu = !showAddMenu"
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            class="flow-fab__icon"
           >
-            {{ selectedNode ? 'Propriedades' : 'Selecione um no' }}
-          </button>
-          <button
-            class="flex-1 py-2.5 text-sm font-medium text-center transition-colors"
-            :class="
-              sidebarTab === 'config'
-                ? 'text-n-brand border-b-2 border-n-brand'
-                : 'text-n-slate-11 border-b-2 border-transparent hover:text-n-slate-12'
-            "
-            @click="sidebarTab = 'config'"
-          >
-            Config do Bot
-          </button>
-        </div>
+            <path
+              d="M12 5V19M5 12H19"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
 
-        <!-- Sidebar Content -->
-        <div class="flex-1 overflow-y-auto">
-          <!-- Node Editor Tab -->
-          <div v-if="sidebarTab === 'node'" class="p-4 space-y-4">
-            <div v-if="!selectedNode" class="flex flex-col items-center justify-center py-16 text-center">
-              <span class="i-lucide-mouse-pointer-click w-8 h-8 text-n-slate-9 mb-3" />
-              <p class="text-sm text-n-slate-9">Clique em um no para editar suas propriedades</p>
+      <!-- Right Sidebar -->
+      <Transition name="sidebar-slide">
+        <div v-if="showSidebar" class="flow-sidebar">
+          <!-- Sidebar: Node Editor -->
+          <template v-if="sidebarTab === 'node' && selectedNode">
+            <div class="flow-sidebar__header">
+              <div class="flow-sidebar__header-left">
+                <span
+                  class="mc-node__dot"
+                  :class="nodeTypeColor(selectedNode.type)"
+                />
+                <span class="flow-sidebar__title">Editar Etapa</span>
+              </div>
+              <button class="flow-sidebar__close" @click="closeSidebar">
+                <span class="i-lucide-x w-5 h-5" />
+              </button>
             </div>
 
-            <!-- Start Node Editor -->
-            <template v-if="selectedNode && selectedNode.type === 'start'">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="w-3 h-3 rounded-full bg-green-500" />
-                <h3 class="text-sm font-semibold text-n-slate-12">No de Inicio</h3>
-              </div>
-              <div>
-                <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                  Saudacao
-                </label>
-                <textarea
-                  v-model="selectedNode.data.greeting"
-                  rows="3"
-                  placeholder="Ola! Como posso ajudar?"
-                  class="mt-1.5 block w-full rounded-lg text-sm bg-n-slate-1 border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand px-3 py-2.5 resize-y"
-                  @input="updateNodeData"
-                />
-              </div>
-            </template>
-
-            <!-- Message Node Editor -->
-            <template v-if="selectedNode && selectedNode.type === 'message'">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="w-3 h-3 rounded-full bg-blue-500" />
-                <h3 class="text-sm font-semibold text-n-slate-12">No de Mensagem</h3>
-              </div>
-              <div>
-                <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                  Chave
-                </label>
-                <input
-                  v-model="selectedNode.data.label"
-                  type="text"
-                  placeholder="chave_da_etapa"
-                  class="mt-1.5 block w-full rounded-lg text-sm bg-n-slate-1 border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand h-10 px-3 font-mono"
-                  @input="updateNodeLabel"
-                />
-              </div>
-              <div>
-                <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                  Mensagem
-                </label>
-                <textarea
-                  v-model="selectedNode.data.message"
-                  rows="4"
-                  placeholder="Texto da mensagem..."
-                  class="mt-1.5 block w-full rounded-lg text-sm bg-n-slate-1 border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand px-3 py-2.5 resize-y"
-                  @input="updateNodeData"
-                />
-              </div>
-              <div>
-                <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                  Tipo
-                </label>
-                <select
-                  v-model="selectedNode.data.stepType"
-                  class="mt-1.5 block w-full rounded-lg text-sm bg-n-slate-1 border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand h-10 px-3"
-                  @change="updateNodeData"
-                >
-                  <option value="input_select">Botoes de opcao</option>
-                  <option value="cards">Cards</option>
-                </select>
-              </div>
-              <div>
-                <div class="flex items-center justify-between mb-2">
-                  <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                    Opcoes / Botoes
-                  </label>
-                  <button
-                    class="inline-flex items-center gap-1 text-xs text-n-brand hover:text-n-brand/80"
-                    @click="addOptionToSelected"
-                  >
-                    <span class="i-lucide-plus w-3 h-3" />
-                    Adicionar
-                  </button>
+            <div class="flow-sidebar__content">
+              <!-- Start Node -->
+              <template v-if="selectedNode.type === 'start'">
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Saudacao</label>
+                  <textarea
+                    v-model="selectedNode.data.greeting"
+                    rows="4"
+                    placeholder="Ola! Como posso ajudar?"
+                    class="flow-sidebar__textarea"
+                    @input="updateNodeData"
+                  />
                 </div>
-                <div class="space-y-2">
-                  <div
-                    v-for="(opt, idx) in selectedNode.data.options"
-                    :key="idx"
-                    class="p-3 rounded-lg bg-n-slate-1 outline outline-1 outline-n-slate-3 space-y-2"
+              </template>
+
+              <!-- Message Node -->
+              <template v-if="selectedNode.type === 'message'">
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Chave da Etapa</label>
+                  <input
+                    v-model="selectedNode.data.label"
+                    type="text"
+                    placeholder="chave_da_etapa"
+                    class="flow-sidebar__input flow-sidebar__input--mono"
+                    @input="updateNodeLabel"
+                  />
+                </div>
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Mensagem</label>
+                  <textarea
+                    v-model="selectedNode.data.message"
+                    rows="5"
+                    placeholder="Texto da mensagem..."
+                    class="flow-sidebar__textarea"
+                    @input="updateNodeData"
+                  />
+                </div>
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Tipo</label>
+                  <select
+                    v-model="selectedNode.data.stepType"
+                    class="flow-sidebar__select"
+                    @change="updateNodeData"
                   >
-                    <div class="flex items-center gap-2">
-                      <span class="text-xs text-n-slate-9 font-mono w-5 text-center flex-shrink-0">{{ idx + 1 }}</span>
+                    <option value="input_select">Botoes de opcao</option>
+                    <option value="cards">Cards</option>
+                  </select>
+                </div>
+                <div class="flow-sidebar__section">
+                  <div class="flow-sidebar__section-header">
+                    <label class="flow-sidebar__label">Opcoes / Botoes</label>
+                    <button
+                      class="flow-sidebar__add-btn"
+                      @click="addOptionToSelected"
+                    >
+                      <span class="i-lucide-plus w-3.5 h-3.5" />
+                      Adicionar
+                    </button>
+                  </div>
+                  <div class="flow-sidebar__options-list">
+                    <div
+                      v-for="(opt, idx) in selectedNode.data.options"
+                      :key="idx"
+                      class="flow-sidebar__option-card"
+                    >
+                      <div class="flow-sidebar__option-row">
+                        <span class="flow-sidebar__option-num">{{ idx + 1 }}</span>
+                        <input
+                          v-model="opt.title"
+                          type="text"
+                          placeholder="Titulo do botao"
+                          class="flow-sidebar__input flow-sidebar__input--sm"
+                          @input="updateNodeData"
+                        />
+                        <button
+                          class="flow-sidebar__remove-btn"
+                          @click="removeOptionFromSelected(idx)"
+                        >
+                          <span class="i-lucide-trash-2 w-3.5 h-3.5" />
+                        </button>
+                      </div>
                       <input
-                        v-model="opt.title"
+                        v-model="opt.value"
                         type="text"
-                        placeholder="Titulo do botao"
-                        class="flex-1 rounded-md text-xs bg-white border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand h-8 px-2"
+                        placeholder="Valor"
+                        class="flow-sidebar__input flow-sidebar__input--sm"
                         @input="updateNodeData"
                       />
-                      <button
-                        class="p-1 rounded-md hover:bg-red-50 text-n-slate-9 hover:text-red-600 transition-colors flex-shrink-0"
-                        @click="removeOptionFromSelected(idx)"
-                      >
-                        <span class="i-lucide-x w-3.5 h-3.5" />
-                      </button>
                     </div>
-                    <input
-                      v-model="opt.value"
-                      type="text"
-                      placeholder="Valor"
-                      class="block w-full rounded-md text-xs bg-white border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand h-8 px-2"
-                      @input="updateNodeData"
-                    />
                   </div>
                 </div>
-              </div>
-              <div class="pt-2">
-                <button
-                  class="w-full py-2 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
-                  @click="deleteSelectedNode"
-                >
-                  <span class="i-lucide-trash-2 w-3.5 h-3.5 inline-block mr-1" />
-                  Excluir no
-                </button>
-              </div>
-            </template>
+              </template>
 
-            <!-- Text Node Editor -->
-            <template v-if="selectedNode && selectedNode.type === 'text'">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="w-3 h-3 rounded-full bg-green-500" />
-                <h3 class="text-sm font-semibold text-n-slate-12">No de Texto</h3>
-              </div>
-              <div>
-                <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                  Chave
-                </label>
-                <input
-                  v-model="selectedNode.data.label"
-                  type="text"
-                  placeholder="chave_da_etapa"
-                  class="mt-1.5 block w-full rounded-lg text-sm bg-n-slate-1 border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand h-10 px-3 font-mono"
-                  @input="updateNodeLabel"
-                />
-              </div>
-              <div>
-                <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                  Mensagem
-                </label>
-                <textarea
-                  v-model="selectedNode.data.message"
-                  rows="4"
-                  placeholder="Texto simples..."
-                  class="mt-1.5 block w-full rounded-lg text-sm bg-n-slate-1 border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand px-3 py-2.5 resize-y"
-                  @input="updateNodeData"
-                />
-              </div>
-              <div>
-                <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                  Proxima etapa (conectar via canvas)
-                </label>
-                <p class="text-xs text-n-slate-9 mt-1">
-                  Arraste uma conexao do handle inferior para o proximo no.
-                </p>
-              </div>
-              <div class="pt-2">
-                <button
-                  class="w-full py-2 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
-                  @click="deleteSelectedNode"
-                >
-                  <span class="i-lucide-trash-2 w-3.5 h-3.5 inline-block mr-1" />
-                  Excluir no
-                </button>
-              </div>
-            </template>
-
-            <!-- Action Node Editor -->
-            <template v-if="selectedNode && selectedNode.type === 'action'">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="w-3 h-3 rounded-full bg-amber-500" />
-                <h3 class="text-sm font-semibold text-n-slate-12">No de Acao</h3>
-              </div>
-              <div>
-                <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                  Chave
-                </label>
-                <input
-                  v-model="selectedNode.data.label"
-                  type="text"
-                  placeholder="chave_da_etapa"
-                  class="mt-1.5 block w-full rounded-lg text-sm bg-n-slate-1 border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand h-10 px-3 font-mono"
-                  @input="updateNodeLabel"
-                />
-              </div>
-              <div>
-                <div class="flex items-center justify-between mb-2">
-                  <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                    Acoes
-                  </label>
-                  <button
-                    class="inline-flex items-center gap-1 text-xs text-n-brand hover:text-n-brand/80"
-                    @click="addActionToSelected"
-                  >
-                    <span class="i-lucide-plus w-3 h-3" />
-                    Adicionar
-                  </button>
+              <!-- Text Node -->
+              <template v-if="selectedNode.type === 'text'">
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Chave da Etapa</label>
+                  <input
+                    v-model="selectedNode.data.label"
+                    type="text"
+                    placeholder="chave_da_etapa"
+                    class="flow-sidebar__input flow-sidebar__input--mono"
+                    @input="updateNodeLabel"
+                  />
                 </div>
-                <div class="space-y-2">
-                  <div
-                    v-for="(action, idx) in selectedNode.data.actions"
-                    :key="idx"
-                    class="p-3 rounded-lg bg-n-slate-1 outline outline-1 outline-n-slate-3 space-y-2"
-                  >
-                    <div class="flex items-center gap-2">
-                      <select
-                        v-model="action.type"
-                        class="flex-1 rounded-md text-xs bg-white border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand h-8 px-2"
-                        @change="updateNodeData"
-                      >
-                        <option value="assign_team">Atribuir a equipe</option>
-                        <option value="assign_agent">Atribuir a agente</option>
-                        <option value="add_label">Adicionar etiqueta</option>
-                        <option value="handoff">Transferir para humano</option>
-                        <option value="resolve">Resolver conversa</option>
-                      </select>
-                      <button
-                        class="p-1 rounded-md hover:bg-red-50 text-n-slate-9 hover:text-red-600 transition-colors flex-shrink-0"
-                        @click="removeActionFromSelected(idx)"
-                      >
-                        <span class="i-lucide-x w-3.5 h-3.5" />
-                      </button>
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Mensagem</label>
+                  <textarea
+                    v-model="selectedNode.data.message"
+                    rows="5"
+                    placeholder="Texto simples..."
+                    class="flow-sidebar__textarea"
+                    @input="updateNodeData"
+                  />
+                </div>
+                <div class="flow-sidebar__section">
+                  <p class="flow-sidebar__hint">
+                    Conecte ao proximo passo arrastando uma conexao do handle inferior do no.
+                  </p>
+                </div>
+              </template>
+
+              <!-- Action Node -->
+              <template v-if="selectedNode.type === 'action'">
+                <div class="flow-sidebar__section">
+                  <label class="flow-sidebar__label">Chave da Etapa</label>
+                  <input
+                    v-model="selectedNode.data.label"
+                    type="text"
+                    placeholder="chave_da_etapa"
+                    class="flow-sidebar__input flow-sidebar__input--mono"
+                    @input="updateNodeLabel"
+                  />
+                </div>
+                <div class="flow-sidebar__section">
+                  <div class="flow-sidebar__section-header">
+                    <label class="flow-sidebar__label">Acoes</label>
+                    <button
+                      class="flow-sidebar__add-btn"
+                      @click="addActionToSelected"
+                    >
+                      <span class="i-lucide-plus w-3.5 h-3.5" />
+                      Adicionar
+                    </button>
+                  </div>
+                  <div class="flow-sidebar__options-list">
+                    <div
+                      v-for="(action, idx) in selectedNode.data.actions"
+                      :key="idx"
+                      class="flow-sidebar__option-card"
+                    >
+                      <div class="flow-sidebar__option-row">
+                        <select
+                          v-model="action.type"
+                          class="flow-sidebar__select flow-sidebar__select--sm"
+                          @change="updateNodeData"
+                        >
+                          <option value="assign_team">Atribuir a equipe</option>
+                          <option value="assign_agent">Atribuir a agente</option>
+                          <option value="add_label">Adicionar etiqueta</option>
+                          <option value="handoff">Transferir para humano</option>
+                          <option value="resolve">Resolver conversa</option>
+                        </select>
+                        <button
+                          class="flow-sidebar__remove-btn"
+                          @click="removeActionFromSelected(idx)"
+                        >
+                          <span class="i-lucide-trash-2 w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <input
+                        v-if="action.type === 'assign_team'"
+                        v-model="action.team_id"
+                        type="text"
+                        placeholder="ID ou nome da equipe"
+                        class="flow-sidebar__input flow-sidebar__input--sm"
+                        @input="updateNodeData"
+                      />
+                      <input
+                        v-if="action.type === 'assign_agent'"
+                        v-model="action.agent_id"
+                        type="text"
+                        placeholder="ID ou nome do agente"
+                        class="flow-sidebar__input flow-sidebar__input--sm"
+                        @input="updateNodeData"
+                      />
+                      <input
+                        v-if="action.type === 'add_label'"
+                        v-model="action.label"
+                        type="text"
+                        placeholder="Nome da etiqueta"
+                        class="flow-sidebar__input flow-sidebar__input--sm"
+                        @input="updateNodeData"
+                      />
                     </div>
-                    <input
-                      v-if="action.type === 'assign_team'"
-                      v-model="action.team_id"
-                      type="text"
-                      placeholder="ID ou nome da equipe"
-                      class="block w-full rounded-md text-xs bg-white border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand h-8 px-2"
-                      @input="updateNodeData"
-                    />
-                    <input
-                      v-if="action.type === 'assign_agent'"
-                      v-model="action.agent_id"
-                      type="text"
-                      placeholder="ID ou nome do agente"
-                      class="block w-full rounded-md text-xs bg-white border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand h-8 px-2"
-                      @input="updateNodeData"
-                    />
-                    <input
-                      v-if="action.type === 'add_label'"
-                      v-model="action.label"
-                      type="text"
-                      placeholder="Nome da etiqueta"
-                      class="block w-full rounded-md text-xs bg-white border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand h-8 px-2"
-                      @input="updateNodeData"
-                    />
                   </div>
                 </div>
-              </div>
-              <div class="pt-2">
+              </template>
+
+              <!-- Delete Button -->
+              <div v-if="selectedNode.type !== 'start'" class="flow-sidebar__danger-zone">
                 <button
-                  class="w-full py-2 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+                  class="flow-sidebar__delete-btn"
                   @click="deleteSelectedNode"
                 >
-                  <span class="i-lucide-trash-2 w-3.5 h-3.5 inline-block mr-1" />
-                  Excluir no
+                  <span class="i-lucide-trash-2 w-4 h-4" />
+                  Excluir etapa
                 </button>
               </div>
-            </template>
-          </div>
+            </div>
+          </template>
 
-          <!-- Bot Config Tab -->
-          <div v-if="sidebarTab === 'config'" class="p-4 space-y-4">
-            <div class="rounded-xl outline outline-1 -outline-offset-1 outline-n-slate-4 bg-white px-4 py-4 space-y-4">
-              <div>
-                <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                  Nome do Bot
-                </label>
+          <!-- Sidebar: Config Panel -->
+          <template v-if="sidebarTab === 'config'">
+            <div class="flow-sidebar__header">
+              <div class="flow-sidebar__header-left">
+                <span class="i-lucide-settings w-5 h-5 text-slate-500" />
+                <span class="flow-sidebar__title">Configuracoes do Bot</span>
+              </div>
+              <button class="flow-sidebar__close" @click="closeSidebar">
+                <span class="i-lucide-x w-5 h-5" />
+              </button>
+            </div>
+
+            <div class="flow-sidebar__content">
+              <div class="flow-sidebar__section">
+                <label class="flow-sidebar__label">Nome do Bot</label>
                 <input
                   v-model="botConfig.bot_name"
                   type="text"
                   placeholder="Assistente Virtual"
-                  class="mt-1.5 block w-full rounded-lg text-sm bg-n-slate-1 border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand h-10 px-3"
+                  class="flow-sidebar__input"
                 />
               </div>
-              <div>
-                <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                  Avatar do Bot
-                </label>
-                <div class="flex items-center gap-4 mt-2">
+
+              <div class="flow-sidebar__section">
+                <label class="flow-sidebar__label">Avatar do Bot</label>
+                <div class="flow-sidebar__avatar-row">
                   <div
-                    class="relative w-16 h-16 rounded-full bg-n-slate-2 flex-shrink-0 overflow-hidden group cursor-pointer outline outline-2 outline-n-slate-3"
+                    class="flow-sidebar__avatar"
                     @click="avatarInputRef && avatarInputRef.click()"
                   >
                     <img
                       v-if="avatarPreview || botConfig.avatar_url"
                       :src="avatarPreview || botConfig.avatar_url"
-                      class="w-full h-full object-cover"
+                      class="flow-sidebar__avatar-img"
                       @error="$event.target.style.display = 'none'"
                     />
-                    <div
-                      v-else
-                      class="w-full h-full flex items-center justify-center"
-                    >
-                      <span class="i-lucide-bot w-7 h-7 text-n-slate-9" />
+                    <div v-else class="flow-sidebar__avatar-placeholder">
+                      <span class="i-lucide-bot w-6 h-6 text-slate-400" />
                     </div>
-                    <div
-                      class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <span class="i-lucide-camera w-5 h-5 text-white" />
+                    <div class="flow-sidebar__avatar-overlay">
+                      <span class="i-lucide-camera w-4 h-4 text-white" />
                     </div>
                   </div>
-                  <div class="flex-1 space-y-2">
+                  <div class="flow-sidebar__avatar-actions">
                     <button
-                      class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium text-n-brand outline outline-1 outline-n-brand/30 hover:bg-n-brand/5 transition-colors"
+                      class="flow-sidebar__avatar-btn"
                       @click="avatarInputRef && avatarInputRef.click()"
                     >
                       <span class="i-lucide-upload w-3.5 h-3.5" />
-                      Fazer upload
+                      Upload
                     </button>
                     <button
                       v-if="avatarPreview || botConfig.avatar_url"
-                      class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 transition-colors ml-2"
+                      class="flow-sidebar__avatar-btn flow-sidebar__avatar-btn--danger"
                       @click="removeAvatar"
                     >
                       <span class="i-lucide-trash-2 w-3.5 h-3.5" />
                       Remover
                     </button>
-                    <p class="text-[11px] text-n-slate-9">
-                      JPG, PNG ou GIF. Max 2MB.
-                    </p>
+                    <span class="flow-sidebar__hint">JPG, PNG ou GIF. Max 2MB.</span>
                   </div>
                   <input
                     ref="avatarInputRef"
@@ -606,23 +588,21 @@
                   />
                 </div>
               </div>
-              <div>
-                <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                  Saudacao inicial
-                </label>
+
+              <div class="flow-sidebar__section">
+                <label class="flow-sidebar__label">Saudacao inicial</label>
                 <textarea
                   v-model="botConfig.greeting"
-                  rows="2"
+                  rows="3"
                   placeholder="Ola! Como posso ajudar voce hoje?"
-                  class="mt-1.5 block w-full rounded-lg text-sm bg-n-slate-1 border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand px-3 py-2.5 resize-y"
+                  class="flow-sidebar__textarea"
                 />
               </div>
-              <div>
-                <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
+
+              <div class="flow-sidebar__section">
+                <label class="flow-sidebar__label">
                   Delay de digitacao
-                  <span class="text-n-slate-9 font-normal">
-                    ({{ botConfig.typing_delay }}s)
-                  </span>
+                  <span class="flow-sidebar__label-detail">({{ botConfig.typing_delay }}s)</span>
                 </label>
                 <input
                   v-model.number="botConfig.typing_delay"
@@ -630,67 +610,59 @@
                   min="0"
                   max="5"
                   step="0.5"
-                  class="mt-2 w-full accent-n-brand"
+                  class="flow-sidebar__range"
                 />
-                <div class="flex justify-between text-xs text-n-slate-9 mt-0.5">
+                <div class="flow-sidebar__range-labels">
                   <span>Sem delay</span>
                   <span>5s</span>
                 </div>
               </div>
-              <div>
-                <label class="text-xs font-medium text-n-slate-9 uppercase tracking-wide">
-                  Mensagem fora do horario
-                </label>
+
+              <div class="flow-sidebar__section">
+                <label class="flow-sidebar__label">Mensagem fora do horario</label>
                 <textarea
                   v-model="botConfig.offline_message"
-                  rows="2"
+                  rows="3"
                   placeholder="No momento estamos fora do horario de atendimento..."
-                  class="mt-1.5 block w-full rounded-lg text-sm bg-n-slate-1 border-none outline outline-1 outline-n-slate-4 focus:outline-n-brand px-3 py-2.5 resize-y"
+                  class="flow-sidebar__textarea"
                 />
               </div>
-              <div class="flex items-center justify-between pt-2">
-                <div>
-                  <div class="text-sm font-medium text-n-slate-12">Fluxo ativo</div>
-                  <div class="text-xs text-n-slate-9 mt-0.5">
-                    Ativar ou desativar este fluxo
+
+              <div class="flow-sidebar__section">
+                <div class="flow-sidebar__toggle-row">
+                  <div>
+                    <div class="flow-sidebar__toggle-title">Fluxo ativo</div>
+                    <div class="flow-sidebar__toggle-desc">Ativar ou desativar este fluxo</div>
                   </div>
+                  <button
+                    class="flow-sidebar__toggle"
+                    :class="{ 'flow-sidebar__toggle--on': isActive }"
+                    @click="isActive = !isActive"
+                  >
+                    <span class="flow-sidebar__toggle-knob" />
+                  </button>
                 </div>
-                <button
-                  :class="isActive ? 'bg-n-brand' : 'bg-n-slate-6'"
-                  class="relative w-11 h-6 rounded-full transition-colors cursor-pointer"
-                  @click="isActive = !isActive"
-                >
-                  <span
-                    :class="isActive ? 'translate-x-5' : 'translate-x-0.5'"
-                    class="inline-block w-5 h-5 bg-white rounded-full transform transition-transform shadow-sm mt-0.5"
-                  />
-                </button>
               </div>
             </div>
-          </div>
-        </div>
+          </template>
 
-        <!-- Toggle Sidebar -->
-        <div class="px-3 py-2 border-t border-n-slate-3 flex-shrink-0">
-          <button
-            class="w-full py-1.5 rounded-lg text-xs font-medium text-n-slate-9 hover:bg-n-slate-2 transition-colors"
-            @click="showSidebar = false"
-          >
-            <span class="i-lucide-panel-right-close w-3.5 h-3.5 inline-block mr-1" />
-            Fechar painel
-          </button>
+          <!-- Sidebar: No selection placeholder -->
+          <template v-if="sidebarTab === 'node' && !selectedNode">
+            <div class="flow-sidebar__header">
+              <div class="flow-sidebar__header-left">
+                <span class="flow-sidebar__title">Propriedades</span>
+              </div>
+              <button class="flow-sidebar__close" @click="closeSidebar">
+                <span class="i-lucide-x w-5 h-5" />
+              </button>
+            </div>
+            <div class="flow-sidebar__empty">
+              <span class="i-lucide-mouse-pointer-click w-10 h-10 text-slate-300" />
+              <p>Clique em um no para editar suas propriedades</p>
+            </div>
+          </template>
         </div>
-      </div>
-
-      <!-- Sidebar Toggle (when hidden) -->
-      <button
-        v-if="!showSidebar"
-        class="absolute top-3 right-3 z-10 h-9 px-3 rounded-lg bg-white shadow-md border border-n-slate-3 text-sm text-n-slate-11 hover:text-n-slate-12 flex items-center gap-1.5"
-        @click="showSidebar = true"
-      >
-        <span class="i-lucide-panel-right-open w-4 h-4" />
-        Painel
-      </button>
+      </Transition>
     </div>
   </div>
 </template>
@@ -721,8 +693,9 @@ const inboxId = ref('');
 const triggerType = ref('conversation_created');
 const isActive = ref(true);
 const isSaving = ref(false);
-const showSidebar = ref(true);
-const sidebarTab = ref('config');
+const showSidebar = ref(false);
+const sidebarTab = ref('node');
+const showAddMenu = ref(false);
 const avatarPreview = ref('');
 const avatarFile = ref(null);
 const avatarInputRef = ref(null);
@@ -747,11 +720,11 @@ const nodeTypes = {};
 const defaultEdgeOptions = {
   type: 'smoothstep',
   animated: true,
-  style: { stroke: '#6366f1', strokeWidth: 2 },
-  markerEnd: { type: 'arrowclosed', color: '#6366f1' },
+  style: { stroke: '#94a3b8', strokeWidth: 2 },
+  markerEnd: { type: 'arrowclosed', color: '#94a3b8' },
 };
 
-const { screenToFlowCoordinate, addNodes, addEdges, removeNodes, removeEdges, getNode, fitView } = useVueFlow();
+const { screenToFlowCoordinate, addNodes, addEdges, removeNodes, removeEdges, getNode, fitView, getViewport } = useVueFlow();
 
 // --- Selected node computed ---
 const selectedNode = computed(() => {
@@ -759,15 +732,59 @@ const selectedNode = computed(() => {
   return nodes.value.find(n => n.id === selectedNodeId.value) || null;
 });
 
+// --- Helpers ---
+const nodeTypeColor = (type) => {
+  const map = {
+    start: 'mc-node__dot--green',
+    message: 'mc-node__dot--blue',
+    text: 'mc-node__dot--purple',
+    action: 'mc-node__dot--amber',
+  };
+  return map[type] || 'mc-node__dot--blue';
+};
+
+const actionIcon = (type) => {
+  const icons = {
+    assign_team: '\u{1F465}',
+    assign_agent: '\u{1F464}',
+    add_label: '\u{1F3F7}\uFE0F',
+    handoff: '\u{1F44B}',
+    resolve: '\u{2705}',
+  };
+  return icons[type] || '\u{26A1}';
+};
+
+const actionDetail = (act) => {
+  if (act.type === 'add_label' && act.label) return `: ${act.label}`;
+  if (act.type === 'assign_team' && act.team_id) return `: ${act.team_id}`;
+  if (act.type === 'assign_agent' && act.agent_id) return `: ${act.agent_id}`;
+  return '';
+};
+
+const closeSidebar = () => {
+  showSidebar.value = false;
+  selectedNodeId.value = null;
+};
+
+const openConfigPanel = () => {
+  sidebarTab.value = 'config';
+  showSidebar.value = true;
+};
+
 // --- Node click handlers ---
 const onNodeClick = ({ node }) => {
   selectedNodeId.value = node.id;
   sidebarTab.value = 'node';
   showSidebar.value = true;
+  showAddMenu.value = false;
 };
 
 const onPaneClick = () => {
   selectedNodeId.value = null;
+  if (sidebarTab.value === 'node') {
+    showSidebar.value = false;
+  }
+  showAddMenu.value = false;
 };
 
 const onNodesChange = (changes) => {
@@ -819,6 +836,36 @@ const onDrop = (event) => {
     y: event.clientY,
   });
 
+  createNodeAtPosition(type, position);
+};
+
+// --- Add node to center of viewport ---
+const addNodeToCenter = (type) => {
+  showAddMenu.value = false;
+
+  const viewport = getViewport();
+  const wrapperEl = flowWrapper.value;
+  let centerX = 400;
+  let centerY = 300;
+
+  if (wrapperEl) {
+    const rect = wrapperEl.getBoundingClientRect();
+    const center = screenToFlowCoordinate({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    });
+    centerX = center.x;
+    centerY = center.y;
+  }
+
+  // Offset slightly randomly so nodes don't stack
+  centerX += (Math.random() - 0.5) * 60;
+  centerY += (Math.random() - 0.5) * 60;
+
+  createNodeAtPosition(type, { x: centerX, y: centerY });
+};
+
+const createNodeAtPosition = (type, position) => {
   const nodeId = `step_${Date.now()}`;
   let newNode;
 
@@ -870,7 +917,6 @@ const onDrop = (event) => {
 
 // --- Node editing helpers ---
 const updateNodeData = () => {
-  // Force reactivity update by replacing the node in the array
   if (!selectedNode.value) return;
   const idx = nodes.value.findIndex(n => n.id === selectedNodeId.value);
   if (idx >= 0) {
@@ -883,9 +929,6 @@ const updateNodeData = () => {
 
 const updateNodeLabel = () => {
   if (!selectedNode.value) return;
-  const node = selectedNode.value;
-  // Update the node ID to match the label (the step key)
-  // We need to also update edges that reference this node
   updateNodeData();
 };
 
@@ -900,14 +943,11 @@ const addOptionToSelected = () => {
 
 const removeOptionFromSelected = (idx) => {
   if (!selectedNode.value || !selectedNode.value.data.options) return;
-  // Remove related edges for this option handle
   const handleId = `option-${idx}`;
   edges.value = edges.value.filter(
     e => !(e.source === selectedNodeId.value && e.sourceHandle === handleId)
   );
-  // Also shift handles for options after this index
   selectedNode.value.data.options.splice(idx, 1);
-  // Re-index edges for options after removed index
   edges.value = edges.value.map(e => {
     if (e.source === selectedNodeId.value && e.sourceHandle) {
       const match = e.sourceHandle.match(/^option-(\d+)$/);
@@ -941,12 +981,10 @@ const removeActionFromSelected = (idx) => {
 const deleteSelectedNode = () => {
   if (!selectedNodeId.value) return;
   const id = selectedNodeId.value;
-  // Remove all edges connected to this node
   edges.value = edges.value.filter(e => e.source !== id && e.target !== id);
-  // Remove the node
   nodes.value = nodes.value.filter(n => n.id !== id);
   selectedNodeId.value = null;
-  sidebarTab.value = 'config';
+  showSidebar.value = false;
 };
 
 // --- Avatar upload ---
@@ -1005,7 +1043,6 @@ const stepsToNodesAndEdges = (stepsObj, config) => {
   const xBase = 300;
   const ySpacing = 200;
 
-  // Create start node
   const startNode = {
     id: 'start',
     type: 'start',
@@ -1022,7 +1059,7 @@ const stepsToNodesAndEdges = (stepsObj, config) => {
 
   stepKeys.forEach((key, index) => {
     const step = stepsObj[key];
-    const pos = step.position || { x: xBase + (index % 3) * 300, y: yOffset + Math.floor(index / 3) * ySpacing };
+    const pos = step.position || { x: xBase + (index % 3) * 350, y: yOffset + Math.floor(index / 3) * ySpacing };
     stepPositions[key] = pos;
 
     if (step.type === 'action') {
@@ -1048,7 +1085,6 @@ const stepsToNodesAndEdges = (stepsObj, config) => {
         },
       });
     } else {
-      // input_select, cards => message node
       newNodes.push({
         id: key,
         type: 'message',
@@ -1063,7 +1099,6 @@ const stepsToNodesAndEdges = (stepsObj, config) => {
     }
   });
 
-  // Create edges from options next_step
   stepKeys.forEach((key) => {
     const step = stepsObj[key];
     if (step.options && step.options.length) {
@@ -1080,7 +1115,6 @@ const stepsToNodesAndEdges = (stepsObj, config) => {
         }
       });
     }
-    // For text nodes with next_step
     if (step.next_step && stepKeys.includes(step.next_step)) {
       newEdges.push({
         id: `e-${key}-default-${step.next_step}`,
@@ -1091,7 +1125,6 @@ const stepsToNodesAndEdges = (stepsObj, config) => {
     }
   });
 
-  // Connect start node to first step if exists
   if (stepKeys.length > 0) {
     const firstKey = stepKeys[0];
     newEdges.push({
@@ -1111,7 +1144,7 @@ const nodesToSteps = () => {
   const stepsObj = {};
 
   nodes.value.forEach((node) => {
-    if (node.type === 'start') return; // Start node is not a step
+    if (node.type === 'start') return;
 
     const key = node.data.label || node.id;
     const stepData = {
@@ -1127,12 +1160,10 @@ const nodesToSteps = () => {
           value: opt.value || '',
           next_step: '',
         };
-        // Find edge from this option handle
         const edge = edges.value.find(
           e => e.source === node.id && e.sourceHandle === `option-${idx}`
         );
         if (edge) {
-          // Use the target node's label as next_step
           const targetNode = nodes.value.find(n => n.id === edge.target);
           optData.next_step = targetNode ? (targetNode.data.label || targetNode.id) : edge.target;
         }
@@ -1148,7 +1179,6 @@ const nodesToSteps = () => {
         return actionObj;
       });
     } else if (node.type === 'text') {
-      // Check for edges from text node (next_step)
       const edge = edges.value.find(e => e.source === node.id && !e.sourceHandle);
       if (edge) {
         const targetNode = nodes.value.find(n => n.id === edge.target);
@@ -1165,7 +1195,6 @@ const nodesToSteps = () => {
 // --- Load existing flow ---
 const loadFlow = () => {
   if (!isEditing.value) {
-    // New flow: create start node
     if (nodes.value.length === 0) {
       nodes.value = [
         {
@@ -1188,7 +1217,6 @@ const loadFlow = () => {
   triggerType.value = flow.trigger_type || 'conversation_created';
   isActive.value = flow.active ?? true;
 
-  // Load bot config
   const config = flow.config || {};
   botConfig.bot_name = config.bot_name || '';
   botConfig.avatar_url = config.avatar_url || '';
@@ -1196,7 +1224,6 @@ const loadFlow = () => {
   botConfig.typing_delay = config.typing_delay ?? 1;
   botConfig.offline_message = config.offline_message || '';
 
-  // Load steps into nodes/edges
   if (flow.steps && typeof flow.steps === 'object' && Object.keys(flow.steps).length > 0) {
     const result = stepsToNodesAndEdges(flow.steps, config);
     nodes.value = result.nodes;
@@ -1232,13 +1259,11 @@ const saveFlow = async () => {
   try {
     const stepsObj = nodesToSteps();
 
-    // Update greeting from start node
     const startNode = nodes.value.find(n => n.type === 'start');
     if (startNode && startNode.data.greeting) {
       botConfig.greeting = startNode.data.greeting;
     }
 
-    // Upload avatar if new file selected
     if (avatarFile.value) {
       botConfig.avatar_url = await uploadAvatar();
       avatarFile.value = null;
@@ -1295,180 +1320,1041 @@ const actionTypeLabel = (type) => {
 @import '@vue-flow/core/dist/theme-default.css';
 @import '@vue-flow/controls/dist/style.css';
 @import '@vue-flow/minimap/dist/style.css';
+</style>
 
-/* Node base styles */
-.start-node,
-.message-node,
-.text-node,
-.action-node {
-  min-width: 220px;
-  max-width: 280px;
-  border-radius: 12px;
-  background: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-  overflow: visible;
-  font-family: inherit;
+<style scoped>
+/* ============================================================
+   FULLSCREEN LAYOUT
+   ============================================================ */
+.flow-editor-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 }
 
-/* Start Node */
-.start-node-header {
+/* ============================================================
+   TOP BAR
+   ============================================================ */
+.flow-topbar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  background: #16a34a;
-  color: white;
-  font-size: 13px;
+  justify-content: space-between;
+  height: 52px;
+  padding: 0 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  z-index: 50;
+}
+
+.flow-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.flow-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.flow-topbar-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.flow-topbar-btn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.flow-topbar-btn-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.flow-topbar-btn-icon:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+
+.flow-topbar-divider {
+  width: 1px;
+  height: 24px;
+  background: #e2e8f0;
+}
+
+.flow-topbar-name {
+  font-size: 16px;
   font-weight: 600;
-  border-radius: 12px 12px 0 0;
+  color: #1e293b;
+  background: transparent;
+  border: none;
+  outline: none;
+  flex: 1;
+  min-width: 0;
 }
 
-.start-node-body {
-  padding: 10px 14px;
+.flow-topbar-name::placeholder {
+  color: #94a3b8;
 }
 
-/* Message Node */
-.message-node-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+.flow-topbar-select {
+  height: 36px;
+  border-radius: 8px;
+  font-size: 13px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  outline: none;
+  padding: 0 12px;
+  color: #475569;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.flow-topbar-select:focus {
+  border-color: #3b82f6;
+}
+
+.flow-topbar-save {
+  height: 36px;
+  padding: 0 20px;
+  border-radius: 8px;
   background: #3b82f6;
   color: white;
   font-size: 13px;
   font-weight: 600;
-  border-radius: 12px 12px 0 0;
-}
-
-.message-node-body {
-  padding: 10px 14px;
-}
-
-/* Text Node */
-.text-node-header {
+  border: none;
+  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
-  background: #22c55e;
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 12px 12px 0 0;
+  transition: all 0.15s;
 }
 
-.text-node-body {
-  padding: 10px 14px;
+.flow-topbar-save:hover:not(:disabled) {
+  background: #2563eb;
 }
 
-/* Action Node */
-.action-node-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  background: #f59e0b;
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 12px 12px 0 0;
+.flow-topbar-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-.action-node-body {
-  padding: 10px 14px;
-}
-
-/* Option pills inside message nodes */
-.option-pill {
+/* ============================================================
+   CANVAS AREA
+   ============================================================ */
+.flow-canvas-area {
+  flex: 1;
   position: relative;
+  overflow: hidden;
+  display: flex;
+}
+
+.flow-canvas-wrapper {
+  flex: 1;
+  position: relative;
+  transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.flow-canvas-wrapper.sidebar-open {
+  margin-right: 400px;
+}
+
+.flow-canvas {
+  width: 100%;
+  height: 100%;
+  background: #f1f5f9;
+}
+
+/* ============================================================
+   NODE CARDS (ManyChat Style)
+   ============================================================ */
+.mc-node {
+  width: 300px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
+  overflow: visible;
+  border-left: 4px solid transparent;
+  transition: box-shadow 0.2s, transform 0.15s;
+  cursor: pointer;
+}
+
+.mc-node:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.mc-node--selected {
+  box-shadow: 0 0 0 2px #3b82f6, 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.mc-node--start {
+  border-left-color: #10b981;
+}
+
+.mc-node--start.mc-node--selected {
+  box-shadow: 0 0 0 2px #10b981, 0 2px 8px rgba(16, 185, 129, 0.2);
+}
+
+.mc-node--message {
+  border-left-color: #3b82f6;
+}
+
+.mc-node--text {
+  border-left-color: #8b5cf6;
+}
+
+.mc-node--text.mc-node--selected {
+  box-shadow: 0 0 0 2px #8b5cf6, 0 2px 8px rgba(139, 92, 246, 0.2);
+}
+
+.mc-node--action {
+  border-left-color: #f59e0b;
+}
+
+.mc-node--action.mc-node--selected {
+  box-shadow: 0 0 0 2px #f59e0b, 0 2px 8px rgba(245, 158, 11, 0.2);
+}
+
+.mc-node__header {
   display: flex;
   align-items: center;
-  padding: 4px 24px 4px 8px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 6px;
-  color: #1e40af;
-  font-size: 11px;
+  gap: 8px;
+  padding: 12px 16px 8px;
 }
 
-/* Flow handles */
-.flow-handle {
-  width: 12px !important;
-  height: 12px !important;
-  border: 2px solid white !important;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+.mc-node__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.flow-handle-source {
-  background: #6366f1 !important;
-}
+.mc-node__dot--green { background: #10b981; }
+.mc-node__dot--blue { background: #3b82f6; }
+.mc-node__dot--purple { background: #8b5cf6; }
+.mc-node__dot--amber { background: #f59e0b; }
 
-.flow-handle-target {
-  background: #a855f7 !important;
-}
-
-.option-handle {
-  width: 10px !important;
-  height: 10px !important;
-}
-
-/* Vue Flow overrides */
-.vue-flow {
-  background: #f8fafc;
-}
-
-.vue-flow__edge-path {
-  stroke-width: 2;
-}
-
-.vue-flow__edge-textbg {
-  fill: white;
-}
-
-.vue-flow__edge-text {
-  font-size: 11px;
-  fill: #6366f1;
-  font-weight: 500;
-}
-
-.vue-flow__minimap {
-  border-radius: 8px;
+.mc-node__key {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.vue-flow__controls {
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+.mc-node__divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 0 16px;
 }
 
-/* Selection highlight */
-.start-node.ring-2,
-.message-node.ring-2,
-.text-node.ring-2,
-.action-node.ring-2 {
-  box-shadow: 0 0 0 2px currentColor, 0 1px 3px rgba(0, 0, 0, 0.1);
+.mc-node__body {
+  padding: 10px 16px 14px;
 }
 
-/* Line clamp utility */
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.line-clamp-3 {
+.mc-node__preview {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  margin: 0;
 }
 
-/* Palette drag styling */
-.palette-item:active {
-  cursor: grabbing;
-  opacity: 0.7;
+.mc-node__empty {
+  font-size: 12px;
+  color: #94a3b8;
+  font-style: italic;
+  margin: 0;
+}
+
+/* Options inside message nodes */
+.mc-node__options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.mc-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 8px 30px 8px 12px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  color: #0369a1;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.mc-option__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mc-option__arrow {
+  color: #0369a1;
+  opacity: 0.5;
+  margin-left: 4px;
+}
+
+/* Action items inside action nodes */
+.mc-node__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.mc-action-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #fffbeb;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #92400e;
+}
+
+.mc-action-item__icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.mc-action-item__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   HANDLES
+   ============================================================ */
+.mc-handle {
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50% !important;
+  border: 2px solid white !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.06) !important;
+  transition: transform 0.15s !important;
+}
+
+.mc-handle:hover {
+  transform: scale(1.3) !important;
+}
+
+.mc-handle--source {
+  background: #3b82f6 !important;
+}
+
+.mc-handle--target {
+  background: #94a3b8 !important;
+}
+
+.mc-handle--option {
+  position: absolute !important;
+  right: -8px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 10px !important;
+  height: 10px !important;
+  background: #0ea5e9 !important;
+}
+
+.mc-handle--option:hover {
+  transform: translateY(-50%) scale(1.3) !important;
+}
+
+/* ============================================================
+   FLOATING ADD BUTTON (FAB)
+   ============================================================ */
+.flow-fab-container {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.flow-fab-container.sidebar-open {
+  right: 424px;
+}
+
+.flow-fab {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4), 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+}
+
+.flow-fab:hover {
+  background: #2563eb;
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5), 0 2px 6px rgba(0, 0, 0, 0.1);
+  transform: scale(1.05);
+}
+
+.flow-fab--active {
+  background: #1e293b;
+  border-radius: 16px;
+}
+
+.flow-fab--active:hover {
+  background: #0f172a;
+  box-shadow: 0 6px 20px rgba(30, 41, 59, 0.5), 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.flow-fab__icon {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.flow-fab--active .flow-fab__icon {
+  transform: rotate(45deg);
+}
+
+.flow-fab-menu {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  min-width: 180px;
+}
+
+.flow-fab-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #334155;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+
+.flow-fab-menu-item:hover {
+  background: #f8fafc;
+}
+
+.flow-fab-menu-item:not(:last-child) {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.flow-fab-menu-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.flow-fab-menu-dot--blue { background: #3b82f6; }
+.flow-fab-menu-dot--purple { background: #8b5cf6; }
+.flow-fab-menu-dot--amber { background: #f59e0b; }
+
+/* FAB menu transitions */
+.fab-menu-enter-active {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fab-menu-leave-active {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fab-menu-enter-from,
+.fab-menu-leave-to {
+  opacity: 0;
+  transform: translateY(8px) scale(0.95);
+}
+
+/* ============================================================
+   RIGHT SIDEBAR (400px)
+   ============================================================ */
+.flow-sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 400px;
+  background: #ffffff;
+  border-left: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  z-index: 40;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.06);
+}
+
+.flow-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.flow-sidebar__header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flow-sidebar__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.flow-sidebar__close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.flow-sidebar__close:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.flow-sidebar__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.flow-sidebar__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #94a3b8;
+  font-size: 14px;
+  padding: 40px;
+  text-align: center;
+}
+
+.flow-sidebar__section {
+  margin-bottom: 20px;
+}
+
+.flow-sidebar__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.flow-sidebar__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.flow-sidebar__section-header .flow-sidebar__label {
+  margin-bottom: 0;
+}
+
+.flow-sidebar__label-detail {
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.flow-sidebar__input {
+  display: block;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.flow-sidebar__input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.flow-sidebar__input--mono {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 13px;
+}
+
+.flow-sidebar__input--sm {
+  height: 34px;
+  font-size: 13px;
+}
+
+.flow-sidebar__textarea {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  outline: none;
+  resize: vertical;
+  line-height: 1.5;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.flow-sidebar__textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.flow-sidebar__select {
+  display: block;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.flow-sidebar__select:focus {
+  border-color: #3b82f6;
+}
+
+.flow-sidebar__select--sm {
+  height: 34px;
+  font-size: 13px;
+  flex: 1;
+}
+
+.flow-sidebar__add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #3b82f6;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.flow-sidebar__add-btn:hover {
+  background: #eff6ff;
+}
+
+.flow-sidebar__options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flow-sidebar__option-card {
+  padding: 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flow-sidebar__option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-sidebar__option-num {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  font-family: monospace;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.flow-sidebar__remove-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.flow-sidebar__remove-btn:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.flow-sidebar__hint {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.flow-sidebar__range {
+  width: 100%;
+  accent-color: #3b82f6;
+  margin-top: 4px;
+}
+
+.flow-sidebar__range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* Avatar */
+.flow-sidebar__avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.flow-sidebar__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  border: 2px solid #e2e8f0;
+}
+
+.flow-sidebar__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.flow-sidebar__avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flow-sidebar__avatar-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.flow-sidebar__avatar:hover .flow-sidebar__avatar-overlay {
+  opacity: 1;
+}
+
+.flow-sidebar__avatar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flow-sidebar__avatar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #3b82f6;
+  background: transparent;
+  border: 1px solid #bfdbfe;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.flow-sidebar__avatar-btn:hover {
+  background: #eff6ff;
+}
+
+.flow-sidebar__avatar-btn--danger {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.flow-sidebar__avatar-btn--danger:hover {
+  background: #fef2f2;
+}
+
+/* Toggle */
+.flow-sidebar__toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flow-sidebar__toggle-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.flow-sidebar__toggle-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.flow-sidebar__toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: #cbd5e1;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.flow-sidebar__toggle--on {
+  background: #3b82f6;
+}
+
+.flow-sidebar__toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s;
+}
+
+.flow-sidebar__toggle--on .flow-sidebar__toggle-knob {
+  transform: translateX(20px);
+}
+
+/* Danger zone */
+.flow-sidebar__danger-zone {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.flow-sidebar__delete-btn {
+  width: 100%;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #dc2626;
+  background: transparent;
+  border: 1px solid #fecaca;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.flow-sidebar__delete-btn:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+/* Sidebar slide transition */
+.sidebar-slide-enter-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-slide-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-slide-enter-from {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.sidebar-slide-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/* ============================================================
+   VUE FLOW OVERRIDES (unscoped needed for deep selectors)
+   ============================================================ */
+</style>
+
+<style>
+/* Vue Flow global overrides */
+.flow-canvas .vue-flow__background {
+  background: #f1f5f9;
+}
+
+.flow-canvas .vue-flow__edge-path {
+  stroke: #94a3b8;
+  stroke-width: 2;
+}
+
+.flow-canvas .vue-flow__edge.animated .vue-flow__edge-path {
+  stroke-dasharray: 5;
+  animation: flow-dash 0.5s linear infinite;
+}
+
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+.flow-canvas .vue-flow__edge-textbg {
+  fill: white;
+  rx: 4;
+}
+
+.flow-canvas .vue-flow__edge-text {
+  font-size: 11px;
+  fill: #64748b;
+  font-weight: 500;
+}
+
+.flow-canvas .vue-flow__minimap {
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+}
+
+.flow-canvas .vue-flow__controls {
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+}
+
+.flow-canvas .vue-flow__controls-button {
+  background: white;
+  border-bottom: 1px solid #f1f5f9;
+  color: #475569;
+}
+
+.flow-canvas .vue-flow__controls-button:hover {
+  background: #f8fafc;
+}
+
+.flow-canvas .vue-flow__connection-line {
+  stroke: #3b82f6;
+  stroke-width: 2;
+}
+
+/* Node wrapper - remove default borders */
+.flow-canvas .vue-flow__node {
+  border: none !important;
+  border-radius: 12px;
+  box-shadow: none !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.flow-canvas .vue-flow__node.selected {
+  box-shadow: none !important;
 }
 </style>

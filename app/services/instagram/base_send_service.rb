@@ -19,7 +19,11 @@ class Instagram::BaseSendService < Base::SendOnChannelService
   end
 
   def send_content
-    send_message(message_params)
+    if message.content_type == 'input_select' && message.content_attributes['items'].present?
+      send_message(input_select_message_params)
+    else
+      send_message(message_params)
+    end
   end
 
   def handle_error(error)
@@ -31,6 +35,28 @@ class Instagram::BaseSendService < Base::SendOnChannelService
       recipient: { id: contact.get_source_id(inbox.id) },
       message: {
         text: message.outgoing_content
+      }
+    }
+
+    merge_human_agent_tag(params)
+  end
+
+  def input_select_message_params
+    items = message.content_attributes['items'] || []
+
+    quick_replies = items.first(13).map do |item|
+      {
+        content_type: 'text',
+        title: item['title'].to_s.truncate(20),
+        payload: item['value'] || item['title']
+      }
+    end
+
+    params = {
+      recipient: { id: contact.get_source_id(inbox.id) },
+      message: {
+        text: message.content,
+        quick_replies: quick_replies
       }
     }
 
