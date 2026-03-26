@@ -59,6 +59,13 @@ module ConversationFlows
     end
 
     def process_message_response(message, step_data)
+      # Only process button clicks (submitted_values), ignore free text during flow
+      submitted_values = message.content_attributes&.dig('submitted_values')
+      unless submitted_values.present?
+        # Ignore free text messages during flow — don't respond, don't re-send options
+        return
+      end
+
       selected_option = match_user_response(message, step_data)
 
       if selected_option.present?
@@ -73,8 +80,7 @@ module ConversationFlows
           complete_flow
         end
       else
-        fallback = step_data['fallback_message'] || 'Desculpe, nao entendi. Por favor, selecione uma das opcoes.'
-        send_bot_message(fallback)
+        # Button was clicked but didn't match — re-send options
         execute_step(flow_state.current_step)
       end
     end

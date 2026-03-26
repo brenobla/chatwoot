@@ -37,6 +37,58 @@ class Api::V1::Accounts::ConversationFlowsController < Api::V1::Accounts::BaseCo
     head :ok
   end
 
+  def test_flow
+    flow = Current.account.conversation_flows.find(params[:id])
+
+    # Find the target inbox (WebWidget)
+    inbox = if flow.inbox_id
+              Current.account.inboxes.find(flow.inbox_id)
+            else
+              Current.account.inboxes.find_by(channel_type: 'Channel::WebWidget')
+            end
+
+    return render json: { error: 'No WebWidget inbox found' }, status: :unprocessable_entity unless inbox
+
+    # Create a test contact
+    contact = Current.account.contacts.create!(
+      name: "Teste #{Time.current.to_i}",
+      phone_number: "+5511#{rand(100_000_000..999_999_999)}"
+    )
+
+    # Create contact_inbox (links contact to inbox with source_id for widget)
+    contact_inbox = ContactInbox.create!(
+      contact: contact,
+      inbox: inbox,
+      source_id: SecureRandom.uuid
+    )
+
+    # Create conversation (skip_flow flag prevents listener from also triggering)
+    conversation = Current.account.conversations.create!(
+      inbox: inbox,
+      contact: contact,
+      contact_inbox: contact_inbox,
+      status: :open,
+      additional_attributes: { 'skip_flow_trigger' => true }
+    )
+
+    # Trigger the flow manually
+    ConversationFlows::EngineService.new(conversation).start_flow(flow)
+
+    # Generate JWT token for widget session (same as what SDK stores in cw_conversation cookie)
+    widget_token = ::Widget::TokenService.new(
+      payload: { source_id: contact_inbox.source_id },
+      token: contact_inbox.pubsub_token
+    ).generate_token
+
+    render json: {
+      website_token: inbox.channel.try(:website_token),
+      source_id: contact_inbox.source_id,
+      pubsub_token: contact_inbox.pubsub_token,
+      auth_token: widget_token,
+      conversation_id: conversation.display_id
+    }
+  end
+
   def upload_avatar
     file = params[:avatar]
     return render json: { error: 'No file provided' }, status: :unprocessable_entity unless file

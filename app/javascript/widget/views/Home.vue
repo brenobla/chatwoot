@@ -23,9 +23,22 @@ export default {
     }),
   },
   methods: {
-    startConversation() {
+    async startConversation() {
       if (this.preChatFormEnabled && !this.conversationSize) {
         return this.router.replace({ name: 'prechat-form' });
+      }
+      // If no conversation exists, create one silently to trigger the flow
+      if (!this.conversationSize) {
+        try {
+          await this.$store.dispatch('conversation/createConversation', {
+            fullName: '',
+            emailAddress: '',
+            phoneNumber: '',
+            message: '',
+          });
+        } catch (e) {
+          // ignore
+        }
       }
       return this.router.replace({ name: 'messages' });
     },

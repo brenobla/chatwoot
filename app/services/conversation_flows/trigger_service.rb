@@ -14,6 +14,9 @@ module ConversationFlows
       flow = find_matching_flow
       return unless flow
 
+      # Remove auto-assignment — only assign when the flow reaches a "transfer" action
+      conversation.update!(assignee_id: nil) if conversation.assignee_id.present?
+
       ConversationFlows::EngineService.new(conversation).start_flow(flow)
     end
 

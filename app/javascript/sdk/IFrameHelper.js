@@ -66,6 +66,10 @@ export const IFrameHelper = {
     if (cwCookie) {
       widgetUrl = `${widgetUrl}&cw_conversation=${cwCookie}`;
     }
+    // skipHome: pass through to widget to auto-navigate to messages
+    if (window.$chatwoot && window.$chatwoot.skipHome) {
+      widgetUrl = `${widgetUrl}&skipHome=true`;
+    }
     iframe.src = widgetUrl;
     iframe.allow =
       'camera;microphone;fullscreen;display-capture;picture-in-picture;clipboard-write;';

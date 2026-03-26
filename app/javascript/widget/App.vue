@@ -265,7 +265,14 @@ export default {
         if (message.event === 'config-set') {
           this.setLocale(message.locale);
           this.setBubbleLabel();
-          this.fetchOldConversations().then(() => this.setUnreadView());
+          this.fetchOldConversations().then(() => {
+            this.setUnreadView();
+            // skipHome: auto-navigate to messages if conversation exists
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('skipHome') === 'true' && this.conversationSize > 0) {
+              this.$router.replace({ name: 'messages' });
+            }
+          });
           this.fetchAvailableAgents(websiteToken);
           this.setAppConfig(message);
           this.$store.dispatch('contacts/get');

@@ -72,6 +72,7 @@ const runSDK = ({ baseUrl, websiteToken }) => {
     widgetStyle: getWidgetStyle(chatwootSettings.widgetStyle) || 'standard',
     resetTriggered: false,
     darkMode: getDarkMode(chatwootSettings.darkMode),
+    skipHome: chatwootSettings.skipHome || false,
     welcomeTitle: chatwootSettings.welcomeTitle || '',
     welcomeDescription: chatwootSettings.welcomeDescription || '',
     availableMessage: chatwootSettings.availableMessage || '',

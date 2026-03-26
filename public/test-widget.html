@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Teste Widget - Curso Beta</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .container { text-align: center; }
+    h1 { color: #1e293b; font-size: 2rem; }
+    p { color: #64748b; font-size: 1.1rem; }
+    .arrow { font-size: 3rem; animation: bounce 1s infinite; margin-top: 2rem; }
+    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(10px); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎓 Curso Beta - Teste do Widget</h1>
+    <p>Clique no chat no canto inferior direito para testar o fluxo de atendimento</p>
+    <div class="arrow">👇</div>
+  </div>
+  <script>
+    // Read params from URL or use defaults
+    var params = new URLSearchParams(window.location.search);
+    var wsToken = params.get('token') || 'M6wXVzd7eSTg9R5txtcE3FrQ';
+    var baseUrl = params.get('base') ? decodeURIComponent(params.get('base')) : 'http://localhost:3000';
+
+    (function(d,t) {
+      var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+      g.src=baseUrl+"/packs/js/sdk.js";
+      g.async = true;
+      s.parentNode.insertBefore(g,s);
+      g.onload=function(){
+        window.chatwootSDK.run({
+          websiteToken: wsToken,
+          baseUrl: baseUrl
+        })
+      }
+    })(document,"script");
+  </script>
+</body>
+</html>

@@ -2,6 +2,8 @@ class ConversationFlowListener < BaseListener
   def conversation_created(event)
     conversation = event.data[:conversation]
     return unless conversation
+    # Skip if already triggered manually (e.g. test_flow action)
+    return if conversation.additional_attributes&.dig('skip_flow_trigger')
 
     # Check if any flow should be triggered for this new conversation
     ConversationFlows::TriggerService.new(conversation).perform

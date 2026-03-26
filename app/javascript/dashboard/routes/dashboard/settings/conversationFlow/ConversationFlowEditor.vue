@@ -104,15 +104,14 @@
                 <div
                   v-for="(opt, idx) in data.options"
                   :key="idx"
-                  class="vf-node__option-pill"
+                  class="vf-node__option-pill-row"
                 >
-                  {{ opt.title || opt.value || '...' }}
+                  <span class="vf-node__option-pill">{{ opt.title || opt.value || '...' }}</span>
                   <Handle
                     :id="'opt-' + idx"
                     type="source"
-                    :position="Position.Bottom"
+                    :position="Position.Right"
                     class="vf-handle vf-handle--source-pill"
-                    :style="{ position: 'relative', transform: 'none', left: 'auto', top: 'auto', display: 'inline-block', width: '8px', height: '8px', marginLeft: '4px' }"
                   />
                 </div>
               </div>
@@ -835,9 +834,12 @@ function layoutNodes(nodes, edges) {
 // ============================================================
 const STEP_TO_VF_TYPE = {
   message: 'message',
+  input_select: 'message',
+  text: 'message',
   collect_data: 'collectData',
   check_hours: 'checkHours',
   transfer: 'transfer',
+  action: 'transfer',
   wait_response: 'waitResponse',
 };
 
@@ -971,7 +973,8 @@ function stepsToNodesAndEdges(stepsObj) {
       data: { ...step },
     });
 
-    if (step.type === 'message' && step.options && step.options.length > 0) {
+    const isMessageType = ['message', 'input_select', 'text'].includes(step.type);
+    if (isMessageType && step.options && step.options.length > 0) {
       step.options.forEach((opt, idx) => {
         if (opt.next_step && stepsObj[opt.next_step]) {
           edges.push({
@@ -1719,21 +1722,30 @@ const saveFlow = async () => {
 
 .vf-node__options {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 8px;
 }
 
 .vf-node__option-pill {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  padding: 4px 10px;
-  border-radius: 14px;
-  background: #3b82f6;
-  color: white;
-  font-size: 11px;
-  font-weight: 600;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 500;
   white-space: nowrap;
+  flex: 1;
+}
+
+.vf-node__option-pill::after {
+  content: '→';
+  margin-left: 8px;
+  opacity: 0.5;
 }
 
 .vf-node__fields {
@@ -1862,10 +1874,24 @@ const saveFlow = async () => {
 }
 
 .vf-handle--source-pill {
-  width: 8px !important;
-  height: 8px !important;
+  width: 10px !important;
+  height: 10px !important;
   border: 2px solid #3b82f6 !important;
   background: white !important;
+  right: -5px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+.vf-node__option-pill-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.vf-node__option-pill-row:last-child {
+  margin-bottom: 0;
 }
 
 .vf-handle--source-green {

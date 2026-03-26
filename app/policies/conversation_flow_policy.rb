@@ -22,4 +22,8 @@ class ConversationFlowPolicy < ApplicationPolicy
   def upload_avatar?
     @account_user.administrator?
   end
+
+  def test_flow?
+    @account_user.administrator?
+  end
 end
