@@ -22,6 +22,29 @@ export default {
       unreadMessageCount: 'conversation/getUnreadMessageCount',
     }),
   },
+  async mounted() {
+    // Auto-create conversation and go directly to chat (skip home screen)
+    // This gives the Zendesk-like experience where the first message with buttons
+    // appears immediately when the visitor opens the widget
+    if (this.preChatFormEnabled && !this.conversationSize) {
+      // If pre-chat form is enabled, let the user fill it first
+      return;
+    }
+    if (!this.conversationSize) {
+      try {
+        await this.$store.dispatch('conversation/createConversation', {
+          fullName: '',
+          emailAddress: '',
+          phoneNumber: '',
+          message: '',
+        });
+      } catch (e) {
+        // ignore creation errors
+      }
+    }
+    // Always redirect to messages view
+    this.router.replace({ name: 'messages' });
+  },
   methods: {
     async startConversation() {
       if (this.preChatFormEnabled && !this.conversationSize) {

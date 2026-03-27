@@ -99,7 +99,20 @@
         <div class="flex items-center gap-4 mb-4 text-xs text-n-slate-9">
           <div class="flex items-center gap-1">
             <span class="i-lucide-inbox w-3.5 h-3.5" />
-            {{ flow.inbox_name || 'Todos' }}
+            <select
+              class="bg-transparent text-xs text-n-slate-9 border-none outline-none cursor-pointer hover:text-n-slate-12 p-0"
+              :value="flow.inbox_id || ''"
+              @change="updateFlowInbox(flow, $event.target.value)"
+            >
+              <option value="">Todos</option>
+              <option
+                v-for="inbox in inboxes"
+                :key="inbox.id"
+                :value="inbox.id"
+              >
+                {{ inbox.name }}
+              </option>
+            </select>
           </div>
           <div v-if="flow.trigger_type" class="flex items-center gap-1">
             <span class="i-lucide-zap w-3.5 h-3.5" />
@@ -159,7 +172,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { useMapGetter } from 'dashboard/composables/store';
-import axios from 'axios';
+/* global axios */
 
 const store = useStore();
 const router = useRouter();
@@ -195,6 +208,19 @@ const editFlow = flow => {
     name: 'conversation_flow_edit',
     params: { flowId: flow.id },
   });
+};
+
+const updateFlowInbox = async (flow, inboxId) => {
+  try {
+    const accountId = store.getters['getCurrentAccountId'];
+    await axios.patch(
+      `/api/v1/accounts/${accountId}/conversation_flows/${flow.id}`,
+      { inbox_id: inboxId || null }
+    );
+    store.dispatch('conversationFlows/get');
+  } catch (e) {
+    console.error('Erro ao atualizar inbox:', e);
+  }
 };
 
 const toggleActive = async flow => {
