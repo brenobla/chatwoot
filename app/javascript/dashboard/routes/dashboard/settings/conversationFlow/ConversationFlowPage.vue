@@ -172,7 +172,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { useMapGetter } from 'dashboard/composables/store';
-/* global axios */
+// Use window.axios which has auth headers injected by dashboard.js
 
 const store = useStore();
 const router = useRouter();
@@ -251,7 +251,7 @@ const testFlow = async flow => {
   // 1. Call test_flow API to create conversation + trigger flow with buttons
   let testData;
   try {
-    const res = await axios.post(
+    const res = await window.axios.post(
       `/api/v1/accounts/${accountId}/conversation_flows/${flow.id}/test_flow`
     );
     testData = res.data;
