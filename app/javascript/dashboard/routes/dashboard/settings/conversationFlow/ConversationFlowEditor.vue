@@ -35,6 +35,13 @@
         </select>
         <button
           class="flow-topbar-btn-icon"
+          title="Simular fluxo"
+          @click="showSimulator = !showSimulator"
+        >
+          <span class="i-lucide-play w-4 h-4" />
+        </button>
+        <button
+          class="flow-topbar-btn-icon"
           title="Organizar layout"
           @click="doAutoLayout"
         >
@@ -66,6 +73,14 @@
 
     <!-- Main Area -->
     <div class="flow-main-area">
+      <!-- Simulator Panel (positioned relative to main-area) -->
+      <FlowSimulator
+        :visible="showSimulator"
+        :steps="steps"
+        :teams="teams"
+        @close="showSimulator = false"
+      />
+
       <!-- Vue Flow Canvas -->
       <div class="flow-canvas" :class="{ 'sidebar-open': showSidebar }">
         <VueFlow
@@ -801,6 +816,7 @@ import { Background } from '@vue-flow/background';
 import { Controls } from '@vue-flow/controls';
 import { MiniMap } from '@vue-flow/minimap';
 import dagre from 'dagre';
+import FlowSimulator from './FlowSimulator.vue';
 
 // ============================================================
 // Dagre auto-layout
@@ -858,6 +874,7 @@ const isEditing = computed(() => !!flowId.value);
 
 const flows = useMapGetter('conversationFlows/getRecords');
 const inboxes = useMapGetter('inboxes/getInboxes');
+const teams = useMapGetter('teams/getTeams');
 
 // ============================================================
 // State
@@ -872,6 +889,7 @@ const sidebarTab = ref('node');
 const avatarPreview = ref('');
 const avatarFile = ref(null);
 const avatarInputRef = ref(null);
+const showSimulator = ref(false);
 
 const botConfig = reactive({
   bot_name: '',
@@ -1388,6 +1406,7 @@ watch(flows, () => loadFlow());
 onMounted(async () => {
   await store.dispatch('conversationFlows/get');
   store.dispatch('inboxes/get');
+  store.dispatch('teams/get');
   loadFlow();
 });
 
