@@ -114,9 +114,6 @@ Rails.application.routes.draw do
             collection do
               post :upload_avatar
             end
-            member do
-              post :test_flow
-            end
           end
           resources :automation_rules, only: [:index, :create, :show, :update, :destroy] do
             post :clone

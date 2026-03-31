@@ -138,13 +138,6 @@
           </button>
           <div class="flex items-center gap-1">
             <button
-              class="p-1.5 rounded-md hover:bg-emerald-50 text-n-slate-9 hover:text-emerald-600 transition-colors"
-              title="Testar fluxo"
-              @click="testFlow(flow)"
-            >
-              <span class="i-lucide-play w-4 h-4" />
-            </button>
-            <button
               class="p-1.5 rounded-md hover:bg-n-slate-3 text-n-slate-9 hover:text-n-slate-12 transition-colors"
               title="Editar"
               @click="editFlow(flow)"
@@ -162,17 +155,14 @@
         </div>
       </div>
     </div>
-
-    <!-- Widget is injected directly into the page, no overlay needed -->
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { useMapGetter } from 'dashboard/composables/store';
-// Use window.axios which has auth headers injected by dashboard.js
 
 const store = useStore();
 const router = useRouter();
@@ -181,9 +171,6 @@ const flows = useMapGetter('conversationFlows/getRecords');
 const inboxes = useMapGetter('inboxes/getInboxes');
 const uiFlags = useMapGetter('conversationFlows/getUIFlags');
 const isFetching = computed(() => uiFlags.value?.fetchingList);
-
-const isTestingWidget = ref(false);
-const testingFlow = ref(null);
 
 onMounted(() => {
   store.dispatch('conversationFlows/get');
@@ -213,7 +200,7 @@ const editFlow = flow => {
 const updateFlowInbox = async (flow, inboxId) => {
   try {
     const accountId = store.getters['getCurrentAccountId'];
-    await axios.patch(
+    await window.axios.patch(
       `/api/v1/accounts/${accountId}/conversation_flows/${flow.id}`,
       { inbox_id: inboxId || null }
     );
@@ -234,132 +221,6 @@ const toggleActive = async flow => {
     // handle error
   }
 };
-
-const testFlow = async flow => {
-  // If already testing, stop first
-  if (isTestingWidget.value) {
-    stopTestWidget();
-    // Wait for cleanup
-    await new Promise(r => setTimeout(r, 500));
-  }
-
-  testingFlow.value = flow;
-
-  const baseUrl = window.location.origin;
-  const accountId = store.getters['getCurrentAccountId'];
-
-  // 1. Call test_flow API to create conversation + trigger flow with buttons
-  let testData;
-  try {
-    const res = await window.axios.post(
-      `/api/v1/accounts/${accountId}/conversation_flows/${flow.id}/test_flow`
-    );
-    testData = res.data;
-  } catch (e) {
-    alert('Erro ao criar conversa de teste: ' + (e.response?.data?.error || e.message));
-    return;
-  }
-
-  const wsToken = testData.website_token;
-  if (!wsToken) {
-    alert('Nenhuma caixa de entrada do tipo Website encontrada.');
-    return;
-  }
-
-  // 2. Clear ALL previous chatwoot session data
-  Object.keys(localStorage).forEach(key => {
-    if (key.startsWith('cw_') || key.startsWith('chatwoot')) {
-      localStorage.removeItem(key);
-    }
-  });
-  Object.keys(sessionStorage).forEach(key => {
-    if (key.startsWith('cw_') || key.startsWith('chatwoot')) {
-      sessionStorage.removeItem(key);
-    }
-  });
-  document.cookie.split(';').forEach(c => {
-    const name = c.trim().split('=')[0];
-    if (name.startsWith('cw_') || name.startsWith('chatwoot')) {
-      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-    }
-  });
-
-  // 3. Set the auth token cookie BEFORE loading SDK
-  // This is what the SDK reads to connect to existing conversation
-  if (testData.auth_token) {
-    document.cookie = `cw_conversation=${testData.auth_token};path=/`;
-  }
-
-  // 4. Configure SDK with skipHome to go directly to chat
-  window.chatwootSettings = {
-    position: 'right',
-    type: 'standard',
-    skipHome: true,
-  };
-
-  // 5. Inject the real Chatwoot SDK (same as client's site)
-  const script = document.createElement('script');
-  script.id = 'chatwoot-test-sdk';
-  script.innerHTML = `
-    (function(d,t) {
-      var BASE_URL="${baseUrl}";
-      var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
-      g.src=BASE_URL+"/packs/js/sdk.js";
-      g.async = true;
-      s.parentNode.insertBefore(g,s);
-      g.onload=function(){
-        window.chatwootSDK.run({
-          websiteToken: '${wsToken}',
-          baseUrl: BASE_URL
-        });
-        // Auto-open widget after SDK loads
-        setTimeout(function(){
-          if(window.$chatwoot) window.$chatwoot.toggle('open');
-        }, 1500);
-      }
-    })(document,"script");
-  `;
-  document.body.appendChild(script);
-
-  isTestingWidget.value = true;
-};
-
-const stopTestWidget = () => {
-  // Remove test widget elements
-  const holder = document.getElementById('cw-test-widget-holder');
-  if (holder) holder.remove();
-  const closeBtn = document.getElementById('cw-test-close-btn');
-  if (closeBtn) closeBtn.remove();
-
-  // Also clean any SDK-injected elements (legacy)
-  const script = document.getElementById('chatwoot-test-sdk');
-  if (script) script.remove();
-  document.querySelectorAll(
-    '[id^="chatwoot"], [class*="woot"], #cw-widget-holder, #cw-bubble-holder'
-  ).forEach(el => el.remove());
-  document.querySelectorAll('iframe[src*="widget"], iframe[id*="chatwoot"]').forEach(el => el.remove());
-
-  // Clear cookies
-  document.cookie.split(';').forEach(c => {
-    const name = c.trim().split('=')[0];
-    if (name.startsWith('cw_')) {
-      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-    }
-  });
-
-  delete window.$chatwoot;
-  delete window.chatwootSDK;
-
-  isTestingWidget.value = false;
-  testingFlow.value = null;
-};
-
-// Clean up widget when leaving the page
-onBeforeUnmount(() => {
-  if (isTestingWidget.value) {
-    stopTestWidget();
-  }
-});
 
 const deleteFlow = async flow => {
   if (!confirm(`Excluir o fluxo "${flow.name}"?`)) return;
