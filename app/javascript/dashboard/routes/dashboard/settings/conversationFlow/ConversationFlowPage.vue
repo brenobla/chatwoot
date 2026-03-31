@@ -49,37 +49,39 @@
       </button>
     </div>
 
-    <!-- Flow Cards -->
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <!-- Flow Cards (full width) -->
+    <div v-else class="flex flex-col gap-4">
       <div
         v-for="flow in flows"
         :key="flow.id"
         class="rounded-xl outline outline-1 -outline-offset-1 outline-n-slate-4 bg-white p-5 hover:shadow-md transition-shadow"
       >
-        <!-- Card Header -->
-        <div class="flex items-start justify-between mb-3">
-          <div class="flex items-center gap-3 min-w-0">
-            <div
-              class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-              :class="flow.active ? 'bg-n-brand/10' : 'bg-n-slate-2'"
-            >
-              <span
-                class="i-lucide-git-branch-plus w-5 h-5"
-                :class="flow.active ? 'text-n-brand' : 'text-n-slate-9'"
-              />
-            </div>
-            <div class="min-w-0">
-              <p class="text-sm font-medium text-n-slate-12 truncate">
-                {{ flow.name }}
-              </p>
-              <p
-                v-if="flow.description"
-                class="text-xs text-n-slate-9 mt-0.5 line-clamp-1"
-              >
-                {{ flow.description }}
-              </p>
-            </div>
+        <div class="flex items-center gap-5">
+          <!-- Icon -->
+          <div
+            class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+            :class="flow.active ? 'bg-n-brand/10' : 'bg-n-slate-2'"
+          >
+            <span
+              class="i-lucide-git-branch-plus w-5 h-5"
+              :class="flow.active ? 'text-n-brand' : 'text-n-slate-9'"
+            />
           </div>
+
+          <!-- Name + Description -->
+          <div class="min-w-0 w-48 flex-shrink-0">
+            <p class="text-sm font-medium text-n-slate-12 truncate">
+              {{ flow.name }}
+            </p>
+            <p
+              v-if="flow.description"
+              class="text-xs text-n-slate-9 mt-0.5 truncate"
+            >
+              {{ flow.description }}
+            </p>
+          </div>
+
+          <!-- Status Badge -->
           <span
             v-if="flow.active"
             class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 flex-shrink-0"
@@ -93,50 +95,91 @@
           >
             Inativo
           </span>
-        </div>
 
-        <!-- Card Info -->
-        <div class="flex items-center gap-4 mb-4 text-xs text-n-slate-9">
-          <div class="flex items-center gap-1">
-            <span class="i-lucide-inbox w-3.5 h-3.5" />
-            <select
-              class="bg-transparent text-xs text-n-slate-9 border-none outline-none cursor-pointer hover:text-n-slate-12 p-0"
-              :value="flow.inbox_id || ''"
-              @change="updateFlowInbox(flow, $event.target.value)"
-            >
-              <option value="">Todos</option>
-              <option
-                v-for="inbox in inboxes"
-                :key="inbox.id"
-                :value="inbox.id"
-              >
-                {{ inbox.name }}
-              </option>
-            </select>
-          </div>
-          <div v-if="flow.trigger_type" class="flex items-center gap-1">
+          <!-- Trigger -->
+          <div
+            v-if="flow.trigger_type"
+            class="flex items-center gap-1 text-xs text-n-slate-9 flex-shrink-0"
+          >
             <span class="i-lucide-zap w-3.5 h-3.5" />
             {{ triggerLabel(flow.trigger_type) }}
           </div>
-          <div v-if="flow.steps" class="flex items-center gap-1">
+
+          <!-- Steps -->
+          <div
+            v-if="flow.steps"
+            class="flex items-center gap-1 text-xs text-n-slate-9 flex-shrink-0"
+          >
             <span class="i-lucide-layers w-3.5 h-3.5" />
             {{ Object.keys(flow.steps || {}).length }} etapas
           </div>
-        </div>
 
-        <!-- Card Actions -->
-        <div class="flex items-center justify-between pt-3 border-t border-n-slate-3">
-          <button
-            class="relative w-10 h-5 rounded-full transition-colors cursor-pointer"
-            :class="flow.active ? 'bg-n-brand' : 'bg-n-slate-6'"
-            @click="toggleActive(flow)"
-          >
-            <span
-              class="inline-block w-4 h-4 bg-white rounded-full transform transition-transform shadow-sm mt-0.5"
-              :class="flow.active ? 'translate-x-5' : 'translate-x-0.5'"
-            />
-          </button>
-          <div class="flex items-center gap-1">
+          <!-- Inbox Multiselect -->
+          <div class="flex-1 min-w-0 relative">
+            <div
+              class="flex items-center gap-1.5 flex-wrap cursor-pointer rounded-lg border border-n-slate-3 px-2.5 py-1.5 min-h-[34px] hover:border-n-slate-5 transition-colors"
+              @click="toggleInboxDropdown(flow.id)"
+            >
+              <span class="i-lucide-inbox w-3.5 h-3.5 text-n-slate-9 flex-shrink-0" />
+              <span
+                v-if="!getFlowInboxIds(flow).length"
+                class="text-xs text-n-slate-9"
+              >
+                Todas as caixas
+              </span>
+              <span
+                v-for="inboxId in getFlowInboxIds(flow)"
+                :key="inboxId"
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-n-brand/10 text-n-brand"
+              >
+                {{ getInboxName(inboxId) }}
+                <button
+                  class="hover:text-red-500 transition-colors"
+                  @click.stop="removeInbox(flow, inboxId)"
+                >
+                  <span class="i-lucide-x w-3 h-3" />
+                </button>
+              </span>
+            </div>
+            <!-- Dropdown -->
+            <div
+              v-if="openDropdownId === flow.id"
+              class="absolute z-50 top-full left-0 mt-1 w-64 bg-white rounded-lg shadow-lg border border-n-slate-3 py-1 max-h-48 overflow-y-auto"
+            >
+              <label
+                v-for="inbox in inboxes"
+                :key="inbox.id"
+                class="flex items-center gap-2.5 px-3 py-2 hover:bg-n-slate-2 cursor-pointer text-sm text-n-slate-12"
+              >
+                <input
+                  type="checkbox"
+                  class="rounded border-n-slate-4 text-n-brand focus:ring-n-brand"
+                  :checked="getFlowInboxIds(flow).includes(inbox.id)"
+                  @change="toggleInbox(flow, inbox.id)"
+                />
+                {{ inbox.name }}
+              </label>
+              <div
+                v-if="!inboxes.length"
+                class="px-3 py-2 text-xs text-n-slate-9"
+              >
+                Nenhuma caixa disponível
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <button
+              class="relative w-10 h-5 rounded-full transition-colors cursor-pointer"
+              :class="flow.active ? 'bg-n-brand' : 'bg-n-slate-6'"
+              @click="toggleActive(flow)"
+            >
+              <span
+                class="inline-block w-4 h-4 bg-white rounded-full transform transition-transform shadow-sm mt-0.5"
+                :class="flow.active ? 'translate-x-5' : 'translate-x-0.5'"
+              />
+            </button>
             <button
               class="p-1.5 rounded-md hover:bg-n-slate-3 text-n-slate-9 hover:text-n-slate-12 transition-colors"
               title="Editar"
@@ -159,7 +202,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { useMapGetter } from 'dashboard/composables/store';
@@ -172,10 +215,62 @@ const inboxes = useMapGetter('inboxes/getInboxes');
 const uiFlags = useMapGetter('conversationFlows/getUIFlags');
 const isFetching = computed(() => uiFlags.value?.fetchingList);
 
+const openDropdownId = ref(null);
+
 onMounted(() => {
   store.dispatch('conversationFlows/get');
   store.dispatch('inboxes/get');
+  document.addEventListener('click', closeDropdown);
 });
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeDropdown);
+});
+
+const closeDropdown = e => {
+  if (!e.target.closest('.relative')) {
+    openDropdownId.value = null;
+  }
+};
+
+const toggleInboxDropdown = flowId => {
+  openDropdownId.value = openDropdownId.value === flowId ? null : flowId;
+};
+
+const getFlowInboxIds = flow => {
+  return flow.inbox_ids || (flow.inbox_id ? [flow.inbox_id] : []);
+};
+
+const getInboxName = inboxId => {
+  const inbox = (inboxes.value || []).find(i => i.id === inboxId);
+  return inbox ? inbox.name : `#${inboxId}`;
+};
+
+const updateFlowInboxIds = async (flow, inboxIds) => {
+  try {
+    const accountId = store.getters['getCurrentAccountId'];
+    await window.axios.patch(
+      `/api/v1/accounts/${accountId}/conversation_flows/${flow.id}`,
+      { inbox_ids: inboxIds }
+    );
+    store.dispatch('conversationFlows/get');
+  } catch (e) {
+    console.error('Erro ao atualizar caixas:', e);
+  }
+};
+
+const toggleInbox = (flow, inboxId) => {
+  const current = getFlowInboxIds(flow);
+  const updated = current.includes(inboxId)
+    ? current.filter(id => id !== inboxId)
+    : [...current, inboxId];
+  updateFlowInboxIds(flow, updated);
+};
+
+const removeInbox = (flow, inboxId) => {
+  const updated = getFlowInboxIds(flow).filter(id => id !== inboxId);
+  updateFlowInboxIds(flow, updated);
+};
 
 const triggerLabel = type => {
   const labels = {
@@ -195,19 +290,6 @@ const editFlow = flow => {
     name: 'conversation_flow_edit',
     params: { flowId: flow.id },
   });
-};
-
-const updateFlowInbox = async (flow, inboxId) => {
-  try {
-    const accountId = store.getters['getCurrentAccountId'];
-    await window.axios.patch(
-      `/api/v1/accounts/${accountId}/conversation_flows/${flow.id}`,
-      { inbox_id: inboxId || null }
-    );
-    store.dispatch('conversationFlows/get');
-  } catch (e) {
-    console.error('Erro ao atualizar inbox:', e);
-  }
 };
 
 const toggleActive = async flow => {

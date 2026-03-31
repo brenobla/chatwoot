@@ -13,5 +13,7 @@ class ConversationFlow < ApplicationRecord
                  :collect_contact_info
 
   scope :active, -> { where(active: true) }
-  scope :for_inbox, ->(inbox_id) { where(inbox_id: [inbox_id, nil]) }
+  scope :for_inbox, lambda { |inbox_id|
+    where("inbox_ids = '[]'::jsonb OR inbox_ids @> ?", [inbox_id].to_json)
+  }
 end

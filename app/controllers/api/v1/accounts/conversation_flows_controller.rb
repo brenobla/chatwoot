@@ -61,6 +61,6 @@ class Api::V1::Accounts::ConversationFlowsController < Api::V1::Accounts::BaseCo
 
   def conversation_flow_params
     params.permit(:name, :description, :inbox_id, :trigger_type, :active,
-                  trigger_config: {}, steps: {}, config: {})
+                  trigger_config: {}, steps: {}, config: {}, inbox_ids: [])
   end
 end
